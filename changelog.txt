@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.3
+Date: 2026-07-04
+  Changes:
+    - Off-ghost placement refunds items via consumed_items (player) or stack spill (robot)
+    - Localized status bar ON/OFF, show-GUI caption, and ghost search result limit label
+    - Ghost placement cache cap reduced to 300 entries
+  Bugfixes:
+    - Status GUI refreshed on tick 1 after save load (covers SP reload without on_singleplayer_init)
+---------------------------------------------------------------------------------------------------
 Version: 2.3.2
 Date: 2026-07-04
   Bugfixes:

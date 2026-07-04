@@ -40,7 +40,7 @@ Player places entity
   → handle_placement()
       → skip if mode off, blacklisted, or not a buildable type
       → find_ghost() within configured radius
-      → destroy + feedback if no ghost
+      → refund items + destroy entity + feedback if no ghost
       → align rotation if enabled
 ```
 
@@ -75,7 +75,7 @@ No other mod dependencies.
    - **Linux:** `~/.factorio/mods/`
    - **macOS:** `~/Library/Application Support/factorio/mods/`
 
-   The folder must be named `ghost-only-mode_2.3.2` (or zip it as `ghost-only-mode_2.3.2.zip`).
+   The folder must be named `ghost-only-mode_2.3.3` (or zip it as `ghost-only-mode_2.3.3.zip`).
 
 2. Launch Factorio 2.0+, enable **Ghost-Only Mode** in the mod list.
 
@@ -83,7 +83,7 @@ No other mod dependencies.
    - No errors in Factorio log (`factorio-current.log`)
    - Ctrl+G toggles the top-right status GUI
    - Settings button opens the settings window (blacklist textfield renders correctly)
-   - Placing off-ghost with mode ON destroys the entity and shows feedback
+   - Placing off-ghost with mode ON refunds the item(s) and shows feedback
    - Placing on a ghost succeeds; rotation aligns when enabled
 
 4. Check log for prototype or locale errors on load.
@@ -92,10 +92,13 @@ No other mod dependencies.
 
 - **No automated tests** — validation is manual in-game only.
 - **`script.on_load` not defined** — acceptable; no mutable upvalues need restoring across loads.
-- **Robot attribution** uses `robot.last_user` with force-level fallback cache; edge cases with multiple players on one force may need review (see next pass).
-- **Ghost cache eviction** — simple tick-based cleanup; may evict valid entries under heavy load (flagged for over-engineering review).
+- **Rejected placement refunds** — player builds use `event.consumed_items`; robot builds spill `event.stack` at the robot position for logistics recovery (robots do not expose carried items in inventory at event time).
+- **Robot attribution** — uses `robot.last_user` when available; otherwise the first player on the force with `enforce_robots` enabled is used (known simplification for shared forces).
+- **`enabled_players_by_force` stores `LuaPlayer` refs** — works after load today; storing `player_index` only would be more defensive (future cleanup).
+- **Ghost placement cache** — capped at 300 entries (`CACHE_SIZE_LIMIT`); evicted on a tick interval. QoL-scale bound, not a full LRU.
 - **`rendering.draw_sprite` feedback** — wrapped in `pcall`; failure is silent.
-- **Tile placement** — not enforced; common floor tiles are blacklisted by default. Full tile-ghost support would need `on_player_built_tile` / `on_robot_built_tile` handlers.
+- **Tile-ghost enforcement** — deliberately deferred. Common floor tiles are blacklisted by default; full support would need `on_player_built_tile` / `on_robot_built_tile` handlers.
+- **Status GUI after save/load** — `player.gui.relative` elements persist in saves; `ensure_all_player_guis()` runs on tick 1 after load as a safety net (see Conventions). `on_singleplayer_init` / `on_multiplayer_init` only fire when `is_multiplayer` changes, not on every SP reload.
 - **No README** — `info.json` description and this file serve as documentation.
 
 ## Conventions for future edits
@@ -109,7 +112,8 @@ No other mod dependencies.
 7. **New prototypes go in `data.lua`** (or `prototypes/` if the mod grows).
 8. **Update `changelog.txt`** for every released version change.
 9. **Persistent state lives in `storage.gom` only** — initialize in `on_init`, clean up in `on_player_removed`.
-10. **Commit messages** — describe what changed and why in plain language.
+10. **Session GUI bootstrap** — `script.on_nth_tick(1, …)` calls `ensure_all_player_guis()` once per control-stage load (covers ordinary SP save reload). Do not rely on `on_singleplayer_init` alone for that case.
+11. **Commit messages** — describe what changed and why in plain language.
 
 ## Historical note
 

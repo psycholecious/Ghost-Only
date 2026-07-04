@@ -38,7 +38,7 @@ local BLACKLIST_DEFAULT = {
 
 local CLOSE_ENOUGH_SQ = 0.04
 local CLEANUP_INTERVAL = 3600
-local CACHE_SIZE_LIMIT = 5000
+local CACHE_SIZE_LIMIT = 300
 local CACHE_PRECISION = "%.2f"
 
 -------------------
@@ -206,6 +206,7 @@ local function find_robot_owner(entity, robot)
 
     local list = d.enabled_players_by_force[entity.force.name]
     if list then
+        -- Known simplification: first enforce_robots player on the force wins when last_user is absent.
         for _, p in ipairs(list) do
             if p and p.valid then
                 local s = settings(p)
@@ -214,6 +215,37 @@ local function find_robot_owner(entity, robot)
         end
     end
     return nil
+end
+
+-------------------
+-- Refund Logic
+-------------------
+local function refund_build_items(event, player, entity, robot)
+    local surface = entity.surface
+    local position = entity.position
+    local force = entity.force
+
+    if event.consumed_items and event.consumed_items.valid then
+        for i = 1, #event.consumed_items do
+            local stack = event.consumed_items[i]
+            if stack.valid_for_read then
+                local remaining = stack.count
+                if player and player.valid then
+                    remaining = remaining - player.insert(stack)
+                end
+                if remaining > 0 then
+                    surface.spill_item_stack(position, {
+                        name = stack.name,
+                        count = remaining,
+                        quality = stack.quality
+                    }, false, force, false)
+                end
+            end
+        end
+    elseif robot and robot.valid and event.stack and event.stack.valid_for_read then
+        -- Robot builds: item not in robot inventory yet at event time; spill for logistics pickup.
+        surface.spill_item_stack(robot.position, event.stack, true, force, false)
+    end
 end
 
 -------------------
@@ -239,6 +271,7 @@ local function handle_placement(event)
         if event.tags then return end
         local pos = entity.position
         local surface = entity.surface
+        refund_build_items(event, player, entity, event.robot)
         entity.destroy{raise_destroy = true}
         if s.show_visual_feedback then
             surface.create_entity{
@@ -297,9 +330,7 @@ end
 
 local function update_gui_status(flow, is_enabled)
     if flow and flow[GUI.STATUS] then
-        flow[GUI.STATUS].caption = is_enabled and
-            "[color=green]Ghost-Only: ON[/color]" or
-            "[color=red]Ghost-Only: OFF[/color]"
+        flow[GUI.STATUS].caption = is_enabled and {"gom.status-on"} or {"gom.status-off"}
     end
 end
 
@@ -405,7 +436,7 @@ local function create_settings_window_content(frame, player)
     -- Checkboxes
     frame.add{type="checkbox", name="gom_align", caption={"gom.auto-align"}, state=s.align}
     frame.add{type="checkbox", name="gom_robots", caption={"gom.tooltip-robots"}, state=s.enforce_robots}
-    frame.add{type="checkbox", name="gom_gui", caption={"gom.tooltip-settings"}, state=s.show_gui}
+    frame.add{type="checkbox", name="gom_gui", caption={"gom.show-gui"}, state=s.show_gui}
     frame.add{type="checkbox", name="gom_visual", caption={"gom.tooltip-visual"}, state=s.show_visual_feedback}
 
     -- Radius slider
@@ -420,7 +451,7 @@ local function create_settings_window_content(frame, player)
     }
 
     -- Cache limit slider
-    frame.add{type="label", name="gom_cache_limit_label", caption=string.format({"gom.cache-limit-label"}, s.cache_limit)}
+    frame.add{type="label", name="gom_cache_limit_label", caption=string.format({"gom.search-limit-label"}, s.cache_limit)}
     frame.add{
         type="slider",
         name="gom_cache_limit",
@@ -545,7 +576,7 @@ local function on_gui_value_changed(e)
         s.cache_limit = e.element.slider_value
         local label = parent and parent["gom_cache_limit_label"]
         if label and label.valid then
-            label.caption = string.format({"gom.cache-limit-label"}, s.cache_limit)
+            label.caption = string.format({"gom.search-limit-label"}, s.cache_limit)
         end
     end
 end
@@ -657,4 +688,12 @@ script.on_configuration_changed(function(cfg)
         end
     end
     rebuild_enabled_players_by_force()
+end)
+
+-- Runs once per session start (including save load). on_singleplayer_init only fires when
+-- is_multiplayer changes, so this covers ordinary singleplayer quit-and-reload cycles.
+script.on_nth_tick(1, function()
+    script.on_nth_tick(1, nil)
+    rebuild_enabled_players_by_force()
+    ensure_all_player_guis()
 end)
