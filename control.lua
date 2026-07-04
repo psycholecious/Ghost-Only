@@ -338,7 +338,13 @@ end
 
 local function update_gui(player)
     local s = settings(player)
-    local root = player.gui.relative
+    -- Always-visible HUD bar (player.gui.top), not player.gui.relative — relative
+    -- anchors require a valid defines.relative_gui_type, and this mod is not tied
+    -- to a specific vanilla panel.
+    local old_relative = player.gui.relative[GUI.FLOW]
+    if old_relative then old_relative.destroy() end
+
+    local root = player.gui.top
     local flow = root[GUI.FLOW]
 
     if not s.show_gui then
@@ -350,7 +356,7 @@ local function update_gui(player)
         flow = root.add{
             type = "flow",
             name = GUI.FLOW,
-            anchor = {gui = defines.relative_gui_type.top, position = defines.relative_gui_position.right}
+            direction = "horizontal"
         }
         create_gui_elements(flow)
     end

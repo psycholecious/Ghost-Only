@@ -64,7 +64,7 @@ From `info.json`:
 "dependencies": ["base >= 2.0.0"]
 ```
 
-- **base** — Required. Provides vanilla entities, ghosts, GUI styles, sprites, and the Factorio 2.0 APIs used (`player.gui.relative`, `action = "lua"` on custom-input, etc.).
+- **base** — Required. Provides vanilla entities, ghosts, GUI styles, sprites, and the Factorio 2.0 APIs used (`player.gui.top`, `action = "lua"` on custom-input, etc.).
 
 No other mod dependencies.
 
@@ -75,7 +75,7 @@ No other mod dependencies.
    - **Linux:** `~/.factorio/mods/`
    - **macOS:** `~/Library/Application Support/factorio/mods/`
 
-   The folder must be named `ghost-only-mode_2.3.4` (or zip it as `ghost-only-mode_2.3.4.zip`).
+   The folder must be named `ghost-only-mode_2.3.5` (or zip it as `ghost-only-mode_2.3.5.zip`).
 
 2. Launch Factorio 2.0+, enable **Ghost-Only Mode** in the mod list.
 
@@ -98,7 +98,7 @@ No other mod dependencies.
 - **Ghost placement cache** — capped at 300 entries (`CACHE_SIZE_LIMIT`); evicted on a tick interval. QoL-scale bound, not a full LRU.
 - **`rendering.draw_sprite` feedback** — wrapped in `pcall`; failure is silent.
 - **Tile-ghost enforcement** — deliberately deferred. Common floor tiles are blacklisted by default; full support would need `on_player_built_tile` / `on_robot_built_tile` handlers.
-- **Status GUI after save/load** — `player.gui.relative` elements persist in saves; `ensure_all_player_guis()` runs on tick 1 after load as a safety net (see Conventions). `on_singleplayer_init` / `on_multiplayer_init` only fire when `is_multiplayer` changes, not on every SP reload.
+- **Status GUI after save/load** — `player.gui.top` elements persist in saves; `ensure_all_player_guis()` runs on tick 1 after load as a safety net (see Conventions). `on_singleplayer_init` / `on_multiplayer_init` only fire when `is_multiplayer` changes, not on every SP reload.
 - **No README** — `info.json` description and this file serve as documentation.
 
 ## Conventions for future edits

@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.5
+Date: 2026-07-04
+  Bugfixes:
+    - Status bar GUI now uses player.gui.top instead of an invalid relative anchor
+      (defines.relative_gui_type.top does not exist; gui key was nil at runtime)
+---------------------------------------------------------------------------------------------------
 Version: 2.3.4
 Date: 2026-07-04
   Bugfixes:
