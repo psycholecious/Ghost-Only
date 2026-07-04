@@ -42,10 +42,10 @@ local CACHE_SIZE_LIMIT = 5000
 local CACHE_PRECISION = "%.2f"
 
 -------------------
--- Global State
+-- Persistent State (storage)
 -------------------
 local function data()
-    global.gom = global.gom or {
+    storage.gom = storage.gom or {
         enabled = {},
         settings = {},
         cache = {},
@@ -53,7 +53,7 @@ local function data()
         last_cleanup = 0,
         enabled_players_by_force = {}
     }
-    return global.gom
+    return storage.gom
 end
 
 local function settings(player)
