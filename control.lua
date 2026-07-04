@@ -2,6 +2,8 @@
 -- Ghost-Only Mode (Factorio 2.0) - Complete Final Version
 -- =========================================================
 
+local util = require("util")
+
 -------------------
 -- Constants
 -------------------

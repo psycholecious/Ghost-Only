@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.4
+Date: 2026-07-04
+  Bugfixes:
+    - Added require("util") so table.deepcopy works (fixes crash on on_configuration_changed and new players)
+---------------------------------------------------------------------------------------------------
 Version: 2.3.3
 Date: 2026-07-04
   Changes:
