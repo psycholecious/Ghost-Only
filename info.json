@@ -1,6 +1,6 @@
 {
   "name": "ghost-only-mode",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "title": "Ghost-Only Mode",
   "author": "Danick B. - Coded and optimized by ChatGPT and Deepseek",
   "description": "Force placement only over existing ghosts. Perfect for blueprint-based building!",
