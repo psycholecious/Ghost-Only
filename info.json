@@ -1,9 +1,9 @@
 {
   "name": "ghost-only-mode",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "title": "Ghost-Only Mode",
   "author": "Danick B. - Coded and optimized by ChatGPT and Deepseek",
   "description": "Force placement only over existing ghosts. Perfect for blueprint-based building!",
-  "factorio_version": "1.1",
-  "dependencies": ["base >= 1.1.0"]
+  "factorio_version": "2.0",
+  "dependencies": ["base >= 2.0.0"]
 }
