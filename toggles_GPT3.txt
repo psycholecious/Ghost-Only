@@ -1,0 +1,427 @@
+-- =============================
+-- Ghost-Only Mode Mod (Complete Final)
+-- =============================
+
+-- Configuration
+local MOD_TOGGLE_KEY = "ghostPlacementToggle"
+
+local DEFAULT_SETTINGS = {
+    align_rotatables = true,
+    enforce_ghost_type = true,
+    show_gui = true,
+    ghost_search_radius = 0.5,
+    enforce_robots = false
+}
+
+local GUI_ELEMENTS = {
+    FLOW = "ghost_only_mode_flow",
+    FRAME = "ghost_only_mode_settings",
+    SETTINGS_BUTTON = "ghost_only_mode_settings_button",
+    LABEL = "ghost_only_mode_label"
+}
+
+local GHOST_CACHE_CLEANUP_INTERVAL = 3600  -- Every minute at 60 UPS
+local CLOSE_ENOUGH_SQ = 0.01               -- Consider ghosts within 0.1 tiles as "very close"
+
+-- ---------------------------------------------------------------------------
+-- Global helpers
+-- ---------------------------------------------------------------------------
+local function get_mod_data()
+    global.mod_data = global.mod_data or { 
+        ghost_only_mode = {}, 
+        player_settings = {},
+        ghost_cache = {}
+    }
+    return global.mod_data
+end
+
+local function get_player(player_index)
+    return player_index and game.players[player_index] or nil
+end
+
+local function get_player_settings(player_index)
+    local mod_data = get_mod_data()
+    if not mod_data.player_settings[player_index] then
+        mod_data.player_settings[player_index] = {
+            align_rotatables = DEFAULT_SETTINGS.align_rotatables,
+            enforce_ghost_type = DEFAULT_SETTINGS.enforce_ghost_type,
+            show_gui = DEFAULT_SETTINGS.show_gui,
+            ghost_search_radius = DEFAULT_SETTINGS.ghost_search_radius,
+            enforce_robots = DEFAULT_SETTINGS.enforce_robots
+        }
+    end
+    return mod_data.player_settings[player_index]
+end
+
+local function log_event(message, player_name)
+    local DEBUG_LOGGING = false
+    if not DEBUG_LOGGING then return end
+    log(string.format(
+        "[%d] %s %s",
+        game.tick,
+        player_name and ("[Player: " .. player_name .. "]") or "[Global]",
+        message
+    ))
+end
+
+-- ---------------------------------------------------------------------------
+-- Entity type helpers
+-- ---------------------------------------------------------------------------
+local function is_rotatable(entity_prototype)
+    return entity_prototype and entity_prototype.rotatable
+end
+
+local function is_rail(entity_type)
+    return entity_type == "straight-rail" or entity_type == "curved-rail"
+end
+
+-- ---------------------------------------------------------------------------
+-- Ghost cache management
+-- ---------------------------------------------------------------------------
+local last_cache_cleanup = 0
+
+local function cleanup_ghost_cache(mod_data)
+    if game.tick - last_cache_cleanup < GHOST_CACHE_CLEANUP_INTERVAL then return end
+    last_cache_cleanup = game.tick
+    local invalid_count = 0
+    for key, ghost in pairs(mod_data.ghost_cache) do
+        if not ghost.valid then
+            mod_data.ghost_cache[key] = nil
+            invalid_count = invalid_count + 1
+        end
+    end
+    if invalid_count > 0 then
+        log_event(string.format("Cleaned %d invalid ghost cache entries", invalid_count), nil)
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Ghost search helper
+-- ---------------------------------------------------------------------------
+local function generate_cache_key(entity, position)
+    return string.format("%s_%d_%d", entity.name, math.floor(position.x), math.floor(position.y))
+end
+
+local function find_closest_matching_ghost(entity, radius, cache_key)
+    local mod_data = get_mod_data()
+    local pos = entity.position
+
+    -- Check cache first
+    if cache_key then
+        local cached_ghost = mod_data.ghost_cache[cache_key]
+        if cached_ghost and cached_ghost.valid then
+            local dx = cached_ghost.position.x - pos.x
+            local dy = cached_ghost.position.y - pos.y
+            if dx*dx + dy*dy <= radius * radius then
+                return cached_ghost
+            end
+            mod_data.ghost_cache[cache_key] = nil
+        end
+    end
+
+    if radius < 0.1 then return nil end
+
+    -- Limited search for performance
+    local ghosts = entity.surface.find_entities_filtered{
+        area = {{pos.x - radius, pos.y - radius}, {pos.x + radius, pos.y + radius}},
+        type = "entity-ghost",
+        name = entity.name,
+        limit = 10
+    }
+
+    local closest_ghost = nil
+    local closest_dist_sq = radius * radius
+
+    for _, ghost in ipairs(ghosts) do
+        if ghost.ghost_name == entity.name then
+            local dx = ghost.position.x - pos.x
+            local dy = ghost.position.y - pos.y
+            local dist_sq = dx*dx + dy*dy
+            if dist_sq < closest_dist_sq then
+                closest_dist_sq = dist_sq
+                closest_ghost = ghost
+                if dist_sq < CLOSE_ENOUGH_SQ then break end
+            end
+        end
+    end
+
+    if closest_ghost and cache_key then
+        mod_data.ghost_cache[cache_key] = closest_ghost
+    end
+
+    cleanup_ghost_cache(mod_data)
+    return closest_ghost
+end
+
+-- ---------------------------------------------------------------------------
+-- GUI
+-- ---------------------------------------------------------------------------
+local function create_settings_gui(player)
+    if not player.valid or not player.gui.center then return end
+    local root = player.gui.center
+    local frame = root[GUI_ELEMENTS.FRAME]
+    if frame and frame.valid then frame.destroy() return end
+
+    local settings = get_player_settings(player.index)
+    frame = root.add{type="frame", name=GUI_ELEMENTS.FRAME, caption="Ghost-Only Mode Settings", direction="vertical"}
+
+    local gui_config = {
+        {type="label", name="radius_label", caption="Ghost Search Radius: " .. string.format("%.1f", settings.ghost_search_radius)},
+        {type="slider", name="ghost_search_radius_slider", minimum_value=0.1, maximum_value=5.0, value=settings.ghost_search_radius, value_step=0.1},
+        {type="checkbox", name="enforce_robots_checkbox", caption="Enforce for construction robots", state=settings.enforce_robots},
+        {type="checkbox", name="align_rotatables_checkbox", caption="Auto-align rotatable entities", state=settings.align_rotatables},
+        {type="button", name="close_settings_button", caption="Close"}
+    }
+
+    for _, config in ipairs(gui_config) do
+        local elem = frame.add(config)
+        if config.type == "slider" then elem.style.minimal_width = 200 end
+    end
+end
+
+local function update_gui(player, force)
+    if not player.valid or not player.gui or not player.gui.top then return end
+    local mod_data = get_mod_data()
+    local settings = get_player_settings(player.index)
+
+    if not settings.show_gui then
+        local flow = player.gui.top[GUI_ELEMENTS.FLOW]
+        if flow and flow.valid then flow.destroy() end
+        return
+    end
+
+    local root = player.gui.top
+    local flow = root[GUI_ELEMENTS.FLOW] or root.add{type="flow", name=GUI_ELEMENTS.FLOW, direction="horizontal"}
+    local label = flow[GUI_ELEMENTS.LABEL] or flow.add{type="label", name=GUI_ELEMENTS.LABEL, caption="", style="bold_label"}
+    local settings_button = flow[GUI_ELEMENTS.SETTINGS_BUTTON] or flow.add{type="sprite-button", name=GUI_ELEMENTS.SETTINGS_BUTTON, sprite="utility/settings", tooltip="Open settings", style="tool_button"}
+
+    local enabled = mod_data.ghost_only_mode[player.index]
+    local caption = enabled and "[color=green]Ghost-Only Mode: ON[/color]" or "[color=red]Ghost-Only Mode: OFF[/color]"
+    if force or label.caption ~= caption then
+        label.caption = caption
+        log_event("GUI updated → " .. (enabled and "ON" or "OFF"), player.name)
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Toggle ghost mode
+-- ---------------------------------------------------------------------------
+local function toggle_ghost_mode(player_index)
+    local player = get_player(player_index)
+    if not player then return end
+    local mod_data = get_mod_data()
+    mod_data.ghost_only_mode[player.index] = not (mod_data.ghost_only_mode[player.index] or false)
+    player.print("Ghost-Only Mode: " .. (mod_data.ghost_only_mode[player.index] and "Enabled" or "Disabled"))
+    log_event("Ghost-Only Mode toggled → " .. (mod_data.ghost_only_mode[player.index] and "ON" or "OFF"), player.name)
+    update_gui(player, true)
+end
+
+-- ---------------------------------------------------------------------------
+-- Placement handling (fully modular)
+-- ---------------------------------------------------------------------------
+local function handle_placement(event)
+    local entity = event.created_entity or event.entity
+    if not entity or not entity.valid then return end
+    if entity.type == "entity-ghost" or entity.type == "character" or entity.type == "vehicle" then return end
+
+    local player = get_player(event.player_index)
+    local is_robot_built = event.name == defines.events.on_robot_built_entity
+
+    -- Determine responsible player for robots
+    if (not player or not player.valid) and is_robot_built then
+        local force = entity.force
+        local player_to_notify = nil
+        for _, p in pairs(game.players) do
+            if p.valid and p.force == force then
+                local settings = get_player_settings(p.index)
+                if settings.enforce_robots then
+                    local mod_data = get_mod_data()
+                    if mod_data.ghost_only_mode[p.index] then
+                        player_to_notify = p
+                        break
+                    end
+                end
+            end
+        end
+        player = player_to_notify
+        if not player then return end
+    elseif not player or not player.valid then
+        return
+    end
+
+    local mod_data = get_mod_data()
+    if not mod_data.ghost_only_mode[player.index] then return end
+    local settings = get_player_settings(player.index)
+    if not settings.enforce_ghost_type then return end
+
+    local cache_key = generate_cache_key(entity, entity.position)
+    local closest_ghost = find_closest_matching_ghost(entity, settings.ghost_search_radius, cache_key)
+
+    if not closest_ghost then
+        local message = { "", "Ghost-Only Mode: ", "[color=red]Build only over existing ghosts![/color]" }
+        if not is_robot_built then
+            player.print(message)
+            entity.surface.create_entity{name="flying-text", position=entity.position, text="Invalid: No matching ghost!", color={r=1,g=0,b=0}}
+        else
+            for _, p in pairs(game.players) do
+                if p.valid and p.force == entity.force then p.print(message) end
+            end
+        end
+        entity.destroy()
+        log_event("Invalid placement (no matching ghost): " .. entity.name, player.name)
+        return
+    end
+
+    -- Rotation alignment with mod support
+    local should_rotate = (is_rotatable(entity.prototype) or is_rail(entity.type)) and settings.align_rotatables
+    if should_rotate then
+        local success, err = pcall(function()
+            entity.direction = closest_ghost.direction
+            if closest_ghost.orientation and entity.orientation ~= nil then
+                entity.orientation = closest_ghost.orientation
+            end
+        end)
+        if not success then
+            local proto_name = entity.prototype and entity.prototype.name or "unknown"
+            log_event("Failed to align entity " .. proto_name .. ": " .. err, player.name)
+            if not is_robot_built then
+                player.print("[color=yellow]Note: Could not auto-align modded entity (" .. proto_name .. ")[/color]")
+            end
+        end
+    end
+
+    log_event("Placed over matching ghost: " .. entity.name, player.name)
+end
+
+-- ---------------------------------------------------------------------------
+-- GUI event handling
+-- ---------------------------------------------------------------------------
+script.on_event(defines.events.on_gui_click, function(event)
+    local element = event.element
+    local player = get_player(event.player_index)
+    if not element or not player then return end
+
+    local handlers = {
+        [GUI_ELEMENTS.SETTINGS_BUTTON] = function() create_settings_gui(player) end,
+        ["close_settings_button"] = function() if element.parent and element.parent.name == GUI_ELEMENTS.FRAME then element.parent.destroy() end end
+    }
+    if handlers[element.name] then handlers[element.name]() return end
+
+    if element.parent and element.parent.name == GUI_ELEMENTS.FRAME then
+        local settings = get_player_settings(player.index)
+        if element.name == "enforce_robots_checkbox" then
+            settings.enforce_robots = element.state
+            player.print("Enforce for robots: " .. (element.state and "ON" or "OFF"))
+        elseif element.name == "align_rotatables_checkbox" then
+            settings.align_rotatables = element.state
+            player.print("Auto-align rotatables: " .. (element.state and "ON" or "OFF"))
+        end
+    end
+end)
+
+script.on_event(defines.events.on_gui_value_changed, function(event)
+    local element = event.element
+    if not element or not element.valid then return end
+    local player = get_player(event.player_index)
+    if not player then return end
+    if element.name == "ghost_search_radius_slider" and element.parent and element.parent.valid then
+        local settings = get_player_settings(player.index)
+        settings.ghost_search_radius = element.slider_value
+        local label = element.parent.children[1]
+        if label and label.valid then
+            label.caption = "Ghost Search Radius: " .. string.format("%.1f", settings.ghost_search_radius)
+        end
+        player.print("Ghost search radius set to " .. string.format("%.1f", settings.ghost_search_radius))
+    end
+end)
+
+-- ---------------------------------------------------------------------------
+-- Commands
+-- ---------------------------------------------------------------------------
+local function cmd_toggle_align_rotatables(cmd)
+    local player = game.get_player(cmd.player_index)
+    if player and player.valid then
+        local settings = get_player_settings(player.index)
+        settings.align_rotatables = not settings.align_rotatables
+        player.print("Auto-rotation is now " .. (settings.align_rotatables and "ON" or "OFF"))
+    end
+end
+
+local function cmd_toggle_enforce_ghosts(cmd)
+    local player = game.get_player(cmd.player_index)
+    if player and player.valid then
+        local settings = get_player_settings(player.index)
+        settings.enforce_ghost_type = not settings.enforce_ghost_type
+        player.print("Enforce ghost type is now " .. (settings.enforce_ghost_type and "ON" or "OFF"))
+    end
+end
+
+local function cmd_toggle_show_gui(cmd)
+    local player = game.get_player(cmd.player_index)
+    if player and player.valid then
+        local settings = get_player_settings(player.index)
+        settings.show_gui = not settings.show_gui
+        player.print("GUI is now " .. (settings.show_gui and "SHOWN" or "HIDDEN"))
+        update_gui(player, true)
+    end
+end
+
+local function cmd_open_settings(cmd)
+    local player = game.get_player(cmd.player_index)
+    if player and player.valid then create_settings_gui(player) end
+end
+
+commands.add_command("toggle_align_rotatables", "Toggle auto-rotation of rotatable entities", cmd_toggle_align_rotatables)
+commands.add_command("toggle_enforce_ghosts", "Toggle enforcement of ghost type", cmd_toggle_enforce_ghosts)
+commands.add_command("toggle_show_gui", "Show/hide the GUI label", cmd_toggle_show_gui)
+commands.add_command("ghost_mode_settings", "Open ghost mode settings", cmd_open_settings)
+
+-- ---------------------------------------------------------------------------
+-- Events
+-- ---------------------------------------------------------------------------
+script.on_event(defines.events.on_built_entity, handle_placement)
+script.on_event(defines.events.on_robot_built_entity, handle_placement)
+
+script.on_event(defines.events.on_player_created, function(event)
+    local mod_data = get_mod_data()
+    local player = get_player(event.player_index)
+    if player and player.valid then
+        mod_data.ghost_only_mode[event.player_index] = false
+        get_player_settings(player.index)
+        update_gui(player, true)
+        log_event("New player initialized", player.name)
+    end
+end)
+
+script.on_event(MOD_TOGGLE_KEY, function(event)
+    if event.player_index then toggle_ghost_mode(event.player_index) end
+end)
+
+script.on_event(defines.events.on_player_joined_game, function(event)
+    local player = get_player(event.player_index)
+    if player and player.valid then update_gui(player, true); log_event("Player joined, GUI updated", player.name) end
+end)
+
+script.on_event(defines.events.on_player_left_game, function(event)
+    local player = get_player(event.player_index)
+    if player then log_event("Player left", player.name) end
+end)
+
+-- ---------------------------------------------------------------------------
+-- Init / Load
+-- ---------------------------------------------------------------------------
+script.on_init(function()
+    global.mod_data = { ghost_only_mode={}, player_settings={}, ghost_cache={} }
+    for _, player in pairs(game.players) do
+        if player and player.valid then
+            global.mod_data.ghost_only_mode[player.index] = false
+            get_player_settings(player.index)
+            update_gui(player, true)
+        end
+    end
+    log_event("Mod initialized", nil)
+end)
+
+script.on_load(function()
+    log_event("Mod loaded", nil)
+end)
