@@ -75,7 +75,7 @@ No other mod dependencies.
    - **Linux:** `~/.factorio/mods/`
    - **macOS:** `~/Library/Application Support/factorio/mods/`
 
-   The folder must be named `ghost-only-mode_2.3.5` (or zip it as `ghost-only-mode_2.3.5.zip`).
+   The folder must be named `ghost-only-mode_2.3.6` (or zip it as `ghost-only-mode_2.3.6.zip`).
 
 2. Launch Factorio 2.0+, enable **Ghost-Only Mode** in the mod list.
 
