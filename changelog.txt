@@ -1,0 +1,18 @@
+---------------------------------------------------------------------------------------------------
+Version: 2.3.1
+Date: 2026-07-04
+  Info:
+    - Repository cleanup: removed duplicate draft files, added documentation
+  Bugfixes:
+    - Fixed Lua syntax error in data.lua (missing comma) that prevented the mod from loading
+    - Added missing gom_wide_textfield GUI style prototype referenced by the settings window
+    - Updated info.json Factorio version to 2.0 to match control.lua APIs
+---------------------------------------------------------------------------------------------------
+Version: 2.3.0
+  Features:
+    - Ghost-only placement enforcement with configurable search radius
+    - GUI toggle and settings window with blacklist management
+    - Optional robot build enforcement and visual placement feedback
+    - Locale support for English strings
+    - Hotkey: Control + G
+---------------------------------------------------------------------------------------------------
