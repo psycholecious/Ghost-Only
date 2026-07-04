@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.2
+Date: 2026-07-04
+  Bugfixes:
+    - Migrated persisted state from global.gom to storage.gom (Factorio 2.0 API)
+    - Fixed ghost search to use ghost_name filter instead of entity prototype name
+    - Fixed settings checkboxes via on_gui_checked_state_changed
+    - Recreate status GUI on save load (on_singleplayer_init / on_multiplayer_init) and MP join
+    - Allow valid ghost-replacement builds when event.tags is set (ghost already consumed)
+    - Fixed gom_wide_textfield style parent (textbox, not wide_textfield)
+    - Rebuild robot-enforcement cache on configuration change and save load
+    - Use prototypes.entity for blacklist validation (Factorio 2.0 API)
+    - Nil-safety and surface reference fixes in placement/GUI handlers
+---------------------------------------------------------------------------------------------------
 Version: 2.3.1
 Date: 2026-07-04
   Info:

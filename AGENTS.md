@@ -52,7 +52,7 @@ Player places entity
 | GUI elements | `gom_*` prefix | `gom_flow`, `gom_toggle`, `gom_frame` |
 | GUI style | `gom_*` prefix | `gom_wide_textfield` |
 | Locale keys | `gom.*` | `gom.build-only-on-ghosts` |
-| Global state table | `global.gom` | Never use bare globals outside this table |
+| Persistent state table | `storage.gom` | Never use bare globals outside this table |
 
 **Do not** reintroduce old draft names (`ghostPlacementToggle`, `ghost_only_mode_*`, `global.mod_data`) without an explicit migration plan.
 
@@ -75,7 +75,7 @@ No other mod dependencies.
    - **Linux:** `~/.factorio/mods/`
    - **macOS:** `~/Library/Application Support/factorio/mods/`
 
-   The folder must be named `ghost-only-mode_2.3.0` (or zip it as `ghost-only-mode_2.3.0.zip`).
+   The folder must be named `ghost-only-mode_2.3.2` (or zip it as `ghost-only-mode_2.3.2.zip`).
 
 2. Launch Factorio 2.0+, enable **Ghost-Only Mode** in the mod list.
 
@@ -93,9 +93,9 @@ No other mod dependencies.
 - **No automated tests** — validation is manual in-game only.
 - **`script.on_load` not defined** — acceptable; no mutable upvalues need restoring across loads.
 - **Robot attribution** uses `robot.last_user` with force-level fallback cache; edge cases with multiple players on one force may need review (see next pass).
-- **`with_cache_lock` / cache eviction** — simple tick-based cleanup; may evict valid entries under heavy load (flagged for over-engineering review).
+- **Ghost cache eviction** — simple tick-based cleanup; may evict valid entries under heavy load (flagged for over-engineering review).
 - **`rendering.draw_sprite` feedback** — wrapped in `pcall`; failure is silent.
-- **Tile ghosts** — `include_tile_ghosts` path exists for `entity.type == "tile"`; lightly tested.
+- **Tile placement** — not enforced; common floor tiles are blacklisted by default. Full tile-ghost support would need `on_player_built_tile` / `on_robot_built_tile` handlers.
 - **No README** — `info.json` description and this file serve as documentation.
 
 ## Conventions for future edits
@@ -108,7 +108,7 @@ No other mod dependencies.
 6. **Match Factorio version in `info.json`** to APIs used in code.
 7. **New prototypes go in `data.lua`** (or `prototypes/` if the mod grows).
 8. **Update `changelog.txt`** for every released version change.
-9. **Global state lives in `global.gom` only** — initialize in `on_init`, clean up in `on_player_removed`.
+9. **Persistent state lives in `storage.gom` only** — initialize in `on_init`, clean up in `on_player_removed`.
 10. **Commit messages** — describe what changed and why in plain language.
 
 ## Historical note
