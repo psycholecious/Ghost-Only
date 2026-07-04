@@ -93,9 +93,9 @@ No other mod dependencies.
 - **No automated tests** — validation is manual in-game only.
 - **`script.on_load` not defined** — acceptable; no mutable upvalues need restoring across loads.
 - **Robot attribution** uses `robot.last_user` with force-level fallback cache; edge cases with multiple players on one force may need review (see next pass).
-- **`with_cache_lock` / cache eviction** — simple tick-based cleanup; may evict valid entries under heavy load (flagged for over-engineering review).
+- **Ghost cache eviction** — simple tick-based cleanup; may evict valid entries under heavy load (flagged for over-engineering review).
 - **`rendering.draw_sprite` feedback** — wrapped in `pcall`; failure is silent.
-- **Tile ghosts** — `include_tile_ghosts` path exists for `entity.type == "tile"`; lightly tested.
+- **Tile placement** — not enforced; common floor tiles are blacklisted by default. Full tile-ghost support would need `on_player_built_tile` / `on_robot_built_tile` handlers.
 - **No README** — `info.json` description and this file serve as documentation.
 
 ## Conventions for future edits

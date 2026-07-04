@@ -67,6 +67,21 @@ local function settings(player)
     return s
 end
 
+local function merge_settings_defaults(s)
+    for key, value in pairs(DEFAULTS) do
+        if s[key] == nil then
+            if key == "blacklist" then
+                s.blacklist = table.deepcopy(BLACKLIST_DEFAULT)
+            else
+                s[key] = value
+            end
+        end
+    end
+    if not s.blacklist then
+        s.blacklist = table.deepcopy(BLACKLIST_DEFAULT)
+    end
+end
+
 -------------------
 -- Helper Functions
 -------------------
@@ -140,7 +155,7 @@ end
 -------------------
 -- Ghost Search
 -------------------
-local function find_ghost(entity, radius, player, include_tile_ghosts)
+local function find_ghost(entity, radius, player)
     cleanup_cache()
     local s = settings(player)
     local key = cache_key(entity)
@@ -153,23 +168,22 @@ local function find_ghost(entity, radius, player, include_tile_ghosts)
         if dx*dx + dy*dy <= radius*radius then return cached end
     end
 
-    local ghost_types = {"entity-ghost"}
-    if include_tile_ghosts then table.insert(ghost_types, "tile-ghost") end
-
     local ghosts = entity.surface.find_entities_filtered{
-        type = ghost_types,
-        name = entity.name,
+        type = "entity-ghost",
+        ghost_name = entity.name,
         area = {{pos.x-radius, pos.y-radius},{pos.x+radius,pos.y+radius}},
         limit = s.cache_limit
     }
 
     local best, best_sq = nil, radius*radius
     for _, g in ipairs(ghosts) do
-        local dx, dy = g.position.x - pos.x, g.position.y - pos.y
-        local d = dx*dx + dy*dy
-        if d < best_sq then
-            best, best_sq = g, d
-            if d < CLOSE_ENOUGH_SQ then break end
+        if g.ghost_name == entity.name then
+            local dx, dy = g.position.x - pos.x, g.position.y - pos.y
+            local d = dx*dx + dy*dy
+            if d < best_sq then
+                best, best_sq = g, d
+                if d < CLOSE_ENOUGH_SQ then break end
+            end
         end
     end
 
@@ -220,12 +234,14 @@ local function handle_placement(event)
     local s = settings(player)
     if s.blacklist[entity.name] then return end
 
-    local ghost = find_ghost(entity, s.radius, player, entity.type == "tile")
+    local ghost = find_ghost(entity, s.radius, player)
     if not ghost then
+        if event.tags then return end
         local pos = entity.position
-        entity.destroy()
+        local surface = entity.surface
+        entity.destroy{raise_destroy = true}
         if s.show_visual_feedback then
-            entity.surface.create_entity{
+            surface.create_entity{
                 name="flying-text", position=pos,
                 text={"gom.no-matching-ghost"}, color={1,0,0}
             }
@@ -309,6 +325,25 @@ local function update_gui(player)
     update_gui_status(flow, data().enabled[player.index])
 end
 
+local function rebuild_enabled_players_by_force()
+    local d = data()
+    d.enabled_players_by_force = {}
+    for player_index, enabled in pairs(d.enabled) do
+        if enabled then
+            update_enabled_cache_smart(player_index, true)
+        end
+    end
+end
+
+local function ensure_all_player_guis()
+    for _, player in pairs(game.players) do
+        if player.valid then
+            settings(player)
+            update_gui(player)
+        end
+    end
+end
+
 -------------------
 -- Blacklist Functions
 -------------------
@@ -320,7 +355,7 @@ local function add_to_blacklist(player, entity_names_text)
     for name in entity_names_text:gmatch("[^,%s;]+") do
         name = name:match("^%s*(.-)%s*$")
         if name ~= "" then
-            if game.entity_prototypes[name] then
+            if prototypes.entity[name] then
                 s.blacklist[name] = true
                 entities_added = entities_added + 1
             else
@@ -452,13 +487,6 @@ local function on_gui_click(e)
             d.gui_positions[player.index] = el.parent.parent.location
             el.parent.parent.destroy()
         end
-    elseif el.name == "gom_align" then s.align = el.state
-    elseif el.name == "gom_robots" then s.enforce_robots = el.state
-    elseif el.name == "gom_gui" then
-        s.show_gui = el.state
-        update_gui(player)
-        if not s.show_gui and player.gui.screen[GUI.FRAME] then player.gui.screen[GUI.FRAME].destroy() end
-    elseif el.name == "gom_visual" then s.show_visual_feedback = el.state
     elseif el.name == "gom_blacklist_add" then
         local input = el.parent.parent["gom_blacklist_input"]
         if input and input.valid and input.text ~= "" then
@@ -481,16 +509,44 @@ local function on_gui_click(e)
     end
 end
 
+local function on_gui_checked_state_changed(e)
+    local el = e.element
+    local player = game.get_player(e.player_index)
+    if not el or not el.valid or not player then return end
+    local s = settings(player)
+
+    if el.name == "gom_align" then
+        s.align = el.state
+    elseif el.name == "gom_robots" then
+        s.enforce_robots = el.state
+    elseif el.name == "gom_gui" then
+        s.show_gui = el.state
+        update_gui(player)
+        if not s.show_gui and player.gui.screen[GUI.FRAME] then
+            player.gui.screen[GUI.FRAME].destroy()
+        end
+    elseif el.name == "gom_visual" then
+        s.show_visual_feedback = el.state
+    end
+end
+
 local function on_gui_value_changed(e)
     local player = game.get_player(e.player_index)
-    if not player then return end
+    if not player or not e.element or not e.element.valid then return end
     local s = settings(player)
+    local parent = e.element.parent
     if e.element.name == "gom_radius" then
         s.radius = e.element.slider_value
-        e.element.parent["gom_radius_label"].caption = string.format({"gom.radius-label"}, s.radius)
+        local label = parent and parent["gom_radius_label"]
+        if label and label.valid then
+            label.caption = string.format({"gom.radius-label"}, s.radius)
+        end
     elseif e.element.name == "gom_cache_limit" then
         s.cache_limit = e.element.slider_value
-        e.element.parent["gom_cache_limit_label"].caption = string.format({"gom.cache-limit-label"}, s.cache_limit)
+        local label = parent and parent["gom_cache_limit_label"]
+        if label and label.valid then
+            label.caption = string.format({"gom.cache-limit-label"}, s.cache_limit)
+        end
     end
 end
 
@@ -502,6 +558,7 @@ local function on_gui_closed(e)
 end
 
 script.on_event(defines.events.on_gui_click, on_gui_click)
+script.on_event(defines.events.on_gui_checked_state_changed, on_gui_checked_state_changed)
 script.on_event(defines.events.on_gui_value_changed, on_gui_value_changed)
 script.on_event(defines.events.on_gui_closed, on_gui_closed)
 
@@ -513,6 +570,7 @@ script.on_event(defines.events.on_robot_built_entity, handle_placement)
 
 script.on_event(defines.events.on_player_created, function(e)
     local player = game.get_player(e.player_index)
+    if not player then return end
     settings(player)
     data().enabled[player.index] = false
     update_gui(player)
@@ -550,6 +608,26 @@ script.on_event(defines.events.on_player_display_scale_changed, function(e)
     if player and player.gui.screen[GUI.FRAME] then open_settings(player) end
 end)
 
+script.on_event(defines.events.on_singleplayer_init, function()
+    rebuild_enabled_players_by_force()
+    ensure_all_player_guis()
+end)
+
+script.on_event(defines.events.on_multiplayer_init, function()
+    rebuild_enabled_players_by_force()
+    ensure_all_player_guis()
+end)
+
+script.on_event(defines.events.on_player_joined_game, function(e)
+    local player = game.get_player(e.player_index)
+    if not player then return end
+    settings(player)
+    if data().enabled[player.index] then
+        update_enabled_cache_smart(player.index, true)
+    end
+    update_gui(player)
+end)
+
 script.on_event(TOGGLE_KEY, function(e)
     local player = game.get_player(e.player_index)
     if not player then return end
@@ -571,8 +649,12 @@ script.on_init(function()
 end)
 
 script.on_configuration_changed(function(cfg)
+    data()
     for _, player in pairs(game.players) do
-        settings(player)
-        update_gui(player)
+        if player.valid then
+            merge_settings_defaults(settings(player))
+            update_gui(player)
+        end
     end
+    rebuild_enabled_players_by_force()
 end)
