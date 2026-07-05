@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.10
+Date: 2026-07-05
+  Bugfixes:
+    - Fix: ghost-only mode now correctly allows placement over blueprint ghosts. Root cause: on_built_entity fires after the engine atomically consumes the ghost, so the old live ghost-search always failed. Fix uses on_pre_build (fires before consumption) to record ghost presence in storage, then on_built_entity reads that record. Robot builds fall back to the existing live search (robots don't fire on_pre_build).
+---------------------------------------------------------------------------------------------------
 Version: 2.3.9
 Date: 2026-07-05
   Bugfixes:
