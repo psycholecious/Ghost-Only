@@ -15,7 +15,7 @@ ghost-only-mode/
 ├── control.lua         # Control stage: all runtime logic
 ├── locale/
 │   └── en/
-│       └── locale.cfg  # English strings for GUI, messages, hotkey name
+│       └── en.cfg      # English strings under [gom] (keys referenced as {"gom.key-name"})
 ├── changelog.txt       # Player-facing version history (Factorio format)
 └── AUDIT.md            # Cleanup audit record (reference only)
 ```
@@ -28,7 +28,7 @@ There are no `data-updates.lua`, `data-final-fixes.lua`, `settings.lua`, `protot
 |-------|-------|--------------|
 | **Data** | `data.lua` | During mod load / sync; registers prototypes |
 | **Control** | `control.lua` | After data stage; registers events and handlers |
-| **Locale** | `locale/en/locale.cfg` | Loaded with mod; keys referenced as `{"gom.key-name"}` |
+| **Locale** | `locale/en/en.cfg` | Loaded with mod; `[gom]` section; keys referenced as `{"gom.key-name"}` |
 
 Standard Factorio data-stage order (`data.lua` → `data-updates.lua` → `data-final-fixes.lua`) applies only when those extra files exist. This mod uses `data.lua` only.
 
@@ -75,7 +75,7 @@ No other mod dependencies.
    - **Linux:** `~/.factorio/mods/`
    - **macOS:** `~/Library/Application Support/factorio/mods/`
 
-   The folder must be named `ghost-only-mode_2.3.6` (or zip it as `ghost-only-mode_2.3.6.zip`).
+   The folder must be named `ghost-only-mode_2.3.8` (or zip it as `ghost-only-mode_2.3.8.zip`).
 
 2. Launch Factorio 2.0+, enable **Ghost-Only Mode** in the mod list.
 
@@ -106,7 +106,7 @@ No other mod dependencies.
 1. **Minimal scope** — fix or extend one concern per change; no drive-by refactors.
 2. **Preserve behavior** unless fixing a confirmed bug or the user requests a change.
 3. **Keep one canonical `control.lua`** — do not add parallel `.txt` draft files.
-4. **Locale all player-visible strings** — add keys to `locale/en/locale.cfg` under `[gui]`, `[message]`, or `[custom-input-name]`.
+4. **Locale all player-visible strings** — add keys to `locale/en/en.cfg` under `[gom]`.
 5. **Prototype names are API** — renaming `ghost-only-toggle` or `gom_*` elements breaks saves/GUI; add migrations if renaming.
 6. **Match Factorio version in `info.json`** to APIs used in code.
 7. **New prototypes go in `data.lua`** (or `prototypes/` if the mod grows).

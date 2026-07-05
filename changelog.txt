@@ -4,6 +4,11 @@ Date: 2026-07-05
   Bugfixes:
     - Replaced removed flying-text entity with LuaPlayer.create_local_flying_text — fixes non-recoverable crash on off-ghost placement when visual feedback is enabled
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.8
+Date: 2026-07-05
+  Bugfixes:
+    - Added/repaired English locale (locale/en/en.cfg) — fixes 'Unknown key' strings throughout the GUI and status bar
+---------------------------------------------------------------------------------------------------
 Version: 2.3.7
 Date: 2026-07-05
   Bugfixes:
