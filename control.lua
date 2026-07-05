@@ -114,7 +114,7 @@ end
 
 local function should_align(entity, s)
     if not s.align then return false end
-    return entity.prototype.rotatable or entity.type == "straight-rail" or entity.type == "curved-rail"
+    return entity.supports_direction
 end
 
 local function update_enabled_cache_smart(player_index, enabled)
@@ -293,20 +293,17 @@ local function handle_placement(event)
 
     local ghost = nil
     local ghost_was_present
-    local pre_direction, pre_orientation
+    local pre_direction
     if pre == nil then
+        -- Robot build: no on_pre_build record, fall back to live search.
         ghost = find_ghost(entity, s.radius, player)
         ghost_was_present = ghost ~= nil
-        if ghost then
-            pre_direction = ghost.direction
-            pre_orientation = ghost.orientation
-        end
+        if ghost then pre_direction = ghost.direction end
     elseif pre == false then
         ghost_was_present = false
     else
         ghost_was_present = (pre.ghost_name == entity.name)
         pre_direction = pre.direction
-        pre_orientation = pre.orientation
     end
 
     if not ghost_was_present then
@@ -327,9 +324,6 @@ local function handle_placement(event)
 
     if should_align(entity, s) and pre_direction then
         entity.direction = pre_direction
-        if pre_orientation and entity.orientation then
-            entity.orientation = pre_orientation
-        end
     end
 
     if s.show_visual_feedback then
@@ -671,8 +665,7 @@ script.on_event(defines.events.on_pre_build, function(e)
         local g = ghosts[1]
         d.pre_build_ghosts[key] = {
             ghost_name = g.ghost_name,
-            direction = g.direction,
-            orientation = g.orientation
+            direction = g.direction
         }
     else
         d.pre_build_ghosts[key] = false
