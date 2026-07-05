@@ -49,6 +49,11 @@ local CLOSE_ENOUGH_SQ = 0.04
 local CLEANUP_INTERVAL = 3600
 local CACHE_SIZE_LIMIT = 300
 local CACHE_PRECISION = "%.2f"
+local PREBUILD_KEY_PRECISION = "%d:%.2f:%.2f"
+
+local function prebuild_key(surface_index, pos)
+    return string.format(PREBUILD_KEY_PRECISION, surface_index, pos.x, pos.y)
+end
 
 -------------------
 -- Persistent State (storage)
@@ -60,7 +65,8 @@ local function data()
         cache = {},
         gui_positions = {},
         last_cleanup = 0,
-        enabled_players_by_force = {}
+        enabled_players_by_force = {},
+        pre_build_ghosts = {}
     }
     return storage.gom
 end
@@ -278,10 +284,27 @@ local function handle_placement(event)
     local s = settings(player)
     if s.blacklist[entity.name] then return end
 
-    local ghost = find_ghost(entity, s.radius, player)
-    if not ghost then
-        if event.tags then return end
-        local pos = entity.position
+    -- Check the pre-build lookahead: did a ghost exist at this position before the engine consumed it?
+    local pos = entity.position
+    local key = prebuild_key(entity.surface.index, pos)
+    d.pre_build_ghosts = d.pre_build_ghosts or {}
+    local pre_ghost_name = d.pre_build_ghosts[key]
+    d.pre_build_ghosts[key] = nil  -- consume the record; don't leak memory
+
+    local ghost
+    local ghost_was_present
+    if pre_ghost_name == nil then
+        -- Robot builds don't fire on_pre_build — use the existing find_ghost search.
+        ghost = find_ghost(entity, s.radius, player)
+        ghost_was_present = ghost ~= nil
+    elseif pre_ghost_name == false then
+        ghost_was_present = false
+    else
+        -- Ghost existed; verify the name matches what was actually built.
+        ghost_was_present = (pre_ghost_name == entity.name)
+    end
+
+    if not ghost_was_present then
         refund_build_items(event, player, entity, event.robot)
         entity.destroy{raise_destroy = true}
         if s.show_visual_feedback and player and player.valid then
@@ -618,6 +641,34 @@ script.on_event(defines.events.on_gui_closed, on_gui_closed)
 -------------------
 script.on_event(defines.events.on_built_entity, handle_placement)
 script.on_event(defines.events.on_robot_built_entity, handle_placement)
+
+script.on_event(defines.events.on_pre_build, function(e)
+    local player = game.get_player(e.player_index)
+    if not player then return end
+    local d = data()
+    if not d.enabled[player.index] then return end
+    local s = settings(player)
+
+    -- surface_index is available via player.surface when on_pre_build fires
+    local surface = player.surface
+    local pos = e.position
+
+    -- Search for any entity-ghost at the cursor position before the engine consumes it.
+    -- Use a small area (0.5 tiles) — the cursor is always tile-centred for entity builds.
+    local ghosts = surface.find_entities_filtered{
+        type = "entity-ghost",
+        area = {{pos.x - 0.5, pos.y - 0.5}, {pos.x + 0.5, pos.y + 0.5}}
+    }
+
+    local key = prebuild_key(surface.index, pos)
+    -- Store which ghost_name was found (nil if none), so on_built_entity can cross-check.
+    d.pre_build_ghosts = d.pre_build_ghosts or {}
+    if #ghosts > 0 then
+        d.pre_build_ghosts[key] = ghosts[1].ghost_name
+    else
+        d.pre_build_ghosts[key] = false   -- explicit false = "checked, no ghost"
+    end
+end)
 
 script.on_event(defines.events.on_player_created, function(e)
     local player = game.get_player(e.player_index)
