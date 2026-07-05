@@ -4,6 +4,13 @@
 
 local util = require("util")
 
+local function safe_sprite(path, fallback)
+    if helpers and helpers.is_valid_sprite_path and helpers.is_valid_sprite_path(path) then
+        return path
+    end
+    return fallback
+end
+
 -------------------
 -- Constants
 -------------------
@@ -236,17 +243,20 @@ local function refund_build_items(event, player, entity, robot)
                     remaining = remaining - player.insert(stack)
                 end
                 if remaining > 0 then
-                    surface.spill_item_stack(position, {
-                        name = stack.name,
-                        count = remaining,
-                        quality = stack.quality
-                    }, false, force, false)
+                    surface.spill_item_stack{
+                        position = position,
+                        stack = { name = stack.name, count = remaining, quality = stack.quality },
+                        enable_looted = false, force = force, allow_belts = false
+                    }
                 end
             end
         end
     elseif robot and robot.valid and event.stack and event.stack.valid_for_read then
         -- Robot builds: item not in robot inventory yet at event time; spill for logistics pickup.
-        surface.spill_item_stack(robot.position, event.stack, true, force, false)
+        surface.spill_item_stack{
+            position = robot.position, stack = event.stack,
+            enable_looted = true, force = force, allow_belts = false
+        }
     end
 end
 
@@ -313,7 +323,7 @@ local function create_gui_elements(flow)
         flow.add{
             type = "sprite-button",
             name = GUI.TOGGLE,
-            sprite = "item/construction-robot",
+            sprite = safe_sprite("item/construction-robot", "utility/go_to_arrow"),
             tooltip = {"gom.tooltip-toggle"}
         }
     end
@@ -324,7 +334,7 @@ local function create_gui_elements(flow)
         flow.add{
             type = "sprite-button",
             name = GUI.SETTINGS,
-            sprite = "utility/expand_dots",
+            sprite = safe_sprite("utility/expand_dots", "utility/go_to_arrow"),
             tooltip = {"gom.tooltip-settings"}
         }
     end
@@ -448,7 +458,7 @@ local function create_settings_window_content(frame, player)
     frame.add{type="checkbox", name="gom_visual", caption={"gom.tooltip-visual"}, state=s.show_visual_feedback}
 
     -- Radius slider
-    frame.add{type="label", name="gom_radius_label", caption=string.format({"gom.radius-label"}, s.radius)}
+    frame.add{type="label", name="gom_radius_label", caption={"gom.radius-label", string.format("%.1f", s.radius)}}
     frame.add{
         type="slider",
         name="gom_radius",
@@ -459,7 +469,7 @@ local function create_settings_window_content(frame, player)
     }
 
     -- Cache limit slider
-    frame.add{type="label", name="gom_cache_limit_label", caption=string.format({"gom.search-limit-label"}, s.cache_limit)}
+    frame.add{type="label", name="gom_cache_limit_label", caption={"gom.search-limit-label", string.format("%d", math.floor(s.cache_limit))}}
     frame.add{
         type="slider",
         name="gom_cache_limit",
@@ -501,7 +511,7 @@ local function open_settings(player)
     titlebar.add{type="label", caption={"gom.settings-title"}, style="frame_title"}
     local drag_space = titlebar.add{type="empty-widget", style="draggable_space_header"}
     drag_space.style.horizontally_stretchable = true
-    titlebar.add{type="sprite-button", name=GUI.CLOSE, sprite="utility/close", style="frame_action_button"}
+    titlebar.add{type="sprite-button", name=GUI.CLOSE, sprite=safe_sprite("utility/close", "utility/go_to_arrow"), style="frame_action_button"}
 
     create_settings_window_content(frame, player)
 end
@@ -578,13 +588,13 @@ local function on_gui_value_changed(e)
         s.radius = e.element.slider_value
         local label = parent and parent["gom_radius_label"]
         if label and label.valid then
-            label.caption = string.format({"gom.radius-label"}, s.radius)
+            label.caption = {"gom.radius-label", string.format("%.1f", s.radius)}
         end
     elseif e.element.name == "gom_cache_limit" then
         s.cache_limit = e.element.slider_value
         local label = parent and parent["gom_cache_limit_label"]
         if label and label.valid then
-            label.caption = string.format({"gom.search-limit-label"}, s.cache_limit)
+            label.caption = {"gom.search-limit-label", string.format("%d", math.floor(s.cache_limit))}
         end
     end
 end
