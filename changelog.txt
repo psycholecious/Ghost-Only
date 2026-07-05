@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.13
+Date: 2026-07-05
+  Bugfixes:
+    - Fixed: ghost direction and alignment now stored during on_pre_build and applied correctly (completes 2.3.12 partial fix)
+    - Fixed: placing wrong entity type over a ghost no longer silently destroys the ghost
+  Features:
+    - Auto-match ghost type — placing any entity over a mismatched ghost swaps to the correct item if available; blocks and refunds if not
+    - Redesigned settings window with General / Advanced / Blacklist tabs
+---------------------------------------------------------------------------------------------------
 Version: 2.3.12
 Date: 2026-07-05
   Bugfixes:

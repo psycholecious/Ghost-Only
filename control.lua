@@ -20,7 +20,13 @@ local GUI = {
     TOGGLE  = "gom_toggle",
     SETTINGS= "gom_settings",
     FRAME   = "gom_frame",
-    CLOSE   = "gom_close"
+    CLOSE   = "gom_close",
+    TAB_GENERAL   = "gom_tab_general",
+    TAB_ADVANCED  = "gom_tab_advanced",
+    TAB_BLACKLIST = "gom_tab_blacklist",
+    PANEL_GENERAL   = "gom_panel_general",
+    PANEL_ADVANCED  = "gom_panel_advanced",
+    PANEL_BLACKLIST = "gom_panel_blacklist"
 }
 
 local TOGGLE_KEY = "ghost-only-toggle"
@@ -31,6 +37,7 @@ local DEFAULTS = {
     enforce_robots = false,
     show_gui = true,
     show_visual_feedback = true,
+    auto_match_ghost = true,
     radius = 0.5,
     cache_limit = 10,
     blacklist = {}
@@ -291,19 +298,85 @@ local function handle_placement(event)
     local pre = d.pre_build_ghosts[key]
     d.pre_build_ghosts[key] = nil
 
-    local ghost = nil
-    local ghost_was_present
-    local pre_direction
+    local ghost_name_expected = nil
+    local pre_direction = nil
+    local ghost_was_present = false
+
     if pre == nil then
-        -- Robot build: no on_pre_build record, fall back to live search.
-        ghost = find_ghost(entity, s.radius, player)
-        ghost_was_present = ghost ~= nil
-        if ghost then pre_direction = ghost.direction end
+        -- Robot build path: no on_pre_build record, fall back to live search.
+        local ghost = find_ghost(entity, s.radius, player)
+        if ghost then
+            ghost_was_present = true
+            ghost_name_expected = ghost.ghost_name
+            pre_direction = ghost.direction
+        end
     elseif pre == false then
         ghost_was_present = false
     else
-        ghost_was_present = (pre.ghost_name == entity.name)
+        -- pre is a table: {ghost_name, direction}
+        ghost_name_expected = pre.ghost_name
         pre_direction = pre.direction
+        if ghost_name_expected == entity.name then
+            ghost_was_present = true
+        else
+            -- A ghost exists but is a different entity type.
+            -- Auto-match ghost type: try to swap the placed item for the ghost's item.
+            ghost_was_present = false
+            if s.auto_match_ghost then
+                local ghost_proto = prototypes.entity[ghost_name_expected]
+                local items_to_place = ghost_proto and ghost_proto.items_to_place_this
+                local match_item = items_to_place and items_to_place[1]
+                if match_item and player and player.valid then
+                    local has_count = player.get_item_count(match_item.name)
+                    if has_count > 0 then
+                        local surface = entity.surface
+                        refund_build_items(event, player, entity, event.robot)
+                        entity.destroy{raise_destroy = true}
+                        local new_entity = surface.create_entity{
+                            name = ghost_name_expected,
+                            position = pos,
+                            direction = pre_direction,
+                            force = player.force,
+                            player = player,
+                            raise_built = true
+                        }
+                        if new_entity and new_entity.valid then
+                            player.remove_item{name = match_item.name, count = 1}
+                            if s.show_visual_feedback then
+                                pcall(function()
+                                    rendering.draw_sprite{
+                                        sprite = "utility/editor_selection",
+                                        target = new_entity,
+                                        surface = new_entity.surface,
+                                        time_to_live = 30,
+                                        color = {0, 1, 0, 0.5}
+                                    }
+                                end)
+                            end
+                        end
+                        return
+                    else
+                        refund_build_items(event, player, entity, event.robot)
+                        entity.destroy{raise_destroy = true}
+                        if s.show_visual_feedback and player and player.valid then
+                            player.create_local_flying_text{
+                                text = {"gom.no-item-for-ghost", ghost_name_expected},
+                                position = pos,
+                                color = {1, 0.5, 0},
+                                time_to_live = 60,
+                                speed = 40
+                            }
+                        end
+                        if not event.robot then
+                            player.print({"gom.need-item-for-ghost", ghost_name_expected})
+                        end
+                        return
+                    end
+                else
+                    ghost_was_present = false
+                end
+            end
+        end
     end
 
     if not ghost_was_present then
@@ -466,54 +539,68 @@ end
 -------------------
 -- Settings Window
 -------------------
+local function show_tab(frame, tab_name)
+    local panels = {GUI.PANEL_GENERAL, GUI.PANEL_ADVANCED, GUI.PANEL_BLACKLIST}
+    local tabs   = {GUI.TAB_GENERAL,  GUI.TAB_ADVANCED,   GUI.TAB_BLACKLIST}
+    for i, pname in ipairs(panels) do
+        local panel = frame[pname]
+        if panel and panel.valid then
+            panel.visible = (pname == tab_name)
+        end
+        local tab = frame["gom_tabrow"] and frame["gom_tabrow"][tabs[i]]
+        if tab and tab.valid then
+            tab.style = (pname == tab_name) and "gom_tab_active" or "gom_tab_inactive"
+        end
+    end
+end
+
 local function create_settings_window_content(frame, player)
     local s = settings(player)
-    -- Clear previous children (except titlebar)
     for _, child in pairs(frame.children) do
-        if child.name ~= GUI.CLOSE and not child.name:match("^gom_titlebar") then
+        if not child.name:match("^gom_titlebar") then
             child.destroy()
         end
     end
 
-    -- Checkboxes
-    frame.add{type="checkbox", name="gom_align", caption={"gom.auto-align"}, state=s.align}
-    frame.add{type="checkbox", name="gom_robots", caption={"gom.tooltip-robots"}, state=s.enforce_robots}
-    frame.add{type="checkbox", name="gom_gui", caption={"gom.show-gui"}, state=s.show_gui}
-    frame.add{type="checkbox", name="gom_visual", caption={"gom.tooltip-visual"}, state=s.show_visual_feedback}
+    local tabrow = frame.add{type="flow", name="gom_tabrow", direction="horizontal"}
+    tabrow.add{type="button", name=GUI.TAB_GENERAL,  caption={"gom.tab-general"},  style="gom_tab_inactive"}
+    tabrow.add{type="button", name=GUI.TAB_ADVANCED, caption={"gom.tab-advanced"}, style="gom_tab_inactive"}
+    tabrow.add{type="button", name=GUI.TAB_BLACKLIST,caption={"gom.tab-blacklist"},style="gom_tab_inactive"}
 
-    -- Radius slider
-    frame.add{type="label", name="gom_radius_label", caption={"gom.radius-label", string.format("%.1f", s.radius)}}
-    frame.add{
-        type="slider",
-        name="gom_radius",
-        minimum_value=0.1,
-        maximum_value=5,
-        value=s.radius,
-        value_step=0.1
-    }
+    local gen = frame.add{type="flow", name=GUI.PANEL_GENERAL, direction="vertical", visible=false}
+    gen.add{type="checkbox", name="gom_auto_match", caption={"gom.auto-match-ghost"}, state=s.auto_match_ghost,
+        tooltip={"gom.tooltip-auto-match"}}
+    gen.add{type="checkbox", name="gom_align",      caption={"gom.auto-align"},       state=s.align,
+        tooltip={"gom.tooltip-align"}}
+    gen.add{type="checkbox", name="gom_robots",     caption={"gom.enforce-robots"},    state=s.enforce_robots,
+        tooltip={"gom.tooltip-robots"}}
+    gen.add{type="checkbox", name="gom_gui",        caption={"gom.show-gui"},          state=s.show_gui,
+        tooltip={"gom.tooltip-show-gui"}}
+    gen.add{type="checkbox", name="gom_visual",     caption={"gom.show-visual"},       state=s.show_visual_feedback,
+        tooltip={"gom.tooltip-visual"}}
 
-    -- Cache limit slider
-    frame.add{type="label", name="gom_cache_limit_label", caption={"gom.search-limit-label", string.format("%d", math.floor(s.cache_limit))}}
-    frame.add{
-        type="slider",
-        name="gom_cache_limit",
-        minimum_value=1,
-        maximum_value=100,
-        value=s.cache_limit,
-        value_step=1
-    }
+    local adv = frame.add{type="flow", name=GUI.PANEL_ADVANCED, direction="vertical", visible=false}
+    adv.add{type="label", caption={"gom.advanced-note"}}
+    adv.add{type="label", name="gom_radius_label",
+        caption={"gom.radius-label", string.format("%.1f", s.radius)}}
+    adv.add{type="slider", name="gom_radius",
+        minimum_value=0.1, maximum_value=5, value=s.radius, value_step=0.1}
+    adv.add{type="label", name="gom_cache_limit_label",
+        caption={"gom.search-limit-label", string.format("%d", math.floor(s.cache_limit))}}
+    adv.add{type="slider", name="gom_cache_limit",
+        minimum_value=1, maximum_value=100, value=s.cache_limit, value_step=1}
 
-    -- Blacklist frame
-    local blacklist_frame = frame.add{type="frame", direction="vertical", caption={"gom.blacklist-title"}}
-    blacklist_frame.add{type="label", caption={"gom.blacklist-help"}}
-    blacklist_frame.add{type="textfield", name="gom_blacklist_input", text="", tooltip={"gom.blacklist-tooltip"}, style="gom_wide_textfield"}
-
-    local button_flow = blacklist_frame.add{type="flow", direction="horizontal"}
-    button_flow.add{type="button", name="gom_blacklist_add", caption={"gom.blacklist-add"}}
+    local bl = frame.add{type="flow", name=GUI.PANEL_BLACKLIST, direction="vertical", visible=false}
+    bl.add{type="label", caption={"gom.blacklist-help"}}
+    bl.add{type="textfield", name="gom_blacklist_input", text="",
+        tooltip={"gom.blacklist-tooltip"}, style="gom_wide_textfield"}
+    local button_flow = bl.add{type="flow", direction="horizontal"}
+    button_flow.add{type="button", name="gom_blacklist_add",   caption={"gom.blacklist-add"}}
     button_flow.add{type="button", name="gom_blacklist_clear", caption={"gom.blacklist-clear"}, style="red_button"}
-
-    local list_flow = blacklist_frame.add{type="flow", name="gom_blacklist_list", direction="vertical"}
+    local list_flow = bl.add{type="flow", name="gom_blacklist_list", direction="vertical"}
     update_blacklist_display(list_flow, s.blacklist or {})
+
+    show_tab(frame, GUI.PANEL_GENERAL)
 end
 
 local function open_settings(player)
@@ -560,6 +647,12 @@ local function on_gui_click(e)
             d.gui_positions[player.index] = el.parent.parent.location
             el.parent.parent.destroy()
         end
+    elseif el.name == GUI.TAB_GENERAL then
+        show_tab(el.parent.parent, GUI.PANEL_GENERAL)
+    elseif el.name == GUI.TAB_ADVANCED then
+        show_tab(el.parent.parent, GUI.PANEL_ADVANCED)
+    elseif el.name == GUI.TAB_BLACKLIST then
+        show_tab(el.parent.parent, GUI.PANEL_BLACKLIST)
     elseif el.name == "gom_blacklist_add" then
         local input = el.parent.parent["gom_blacklist_input"]
         if input and input.valid and input.text ~= "" then
@@ -588,7 +681,9 @@ local function on_gui_checked_state_changed(e)
     if not el or not el.valid or not player then return end
     local s = settings(player)
 
-    if el.name == "gom_align" then
+    if el.name == "gom_auto_match" then
+        s.auto_match_ghost = el.state
+    elseif el.name == "gom_align" then
         s.align = el.state
     elseif el.name == "gom_robots" then
         s.enforce_robots = el.state
