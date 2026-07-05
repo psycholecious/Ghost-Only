@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.11
+Date: 2026-07-05
+  Bugfixes:
+    - Fix crash on successful ghost placement: ghost reference was nil in player build path (ghost consumed before on_built_entity fires); alignment and feedback now use direction stored during on_pre_build. Feedback sprite now targets the built entity instead of the consumed ghost.
+---------------------------------------------------------------------------------------------------
 Version: 2.3.10
 Date: 2026-07-05
   Bugfixes:

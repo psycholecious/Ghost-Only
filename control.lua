@@ -288,20 +288,25 @@ local function handle_placement(event)
     local pos = entity.position
     local key = prebuild_key(entity.surface.index, pos)
     d.pre_build_ghosts = d.pre_build_ghosts or {}
-    local pre_ghost_name = d.pre_build_ghosts[key]
-    d.pre_build_ghosts[key] = nil  -- consume the record; don't leak memory
+    local pre = d.pre_build_ghosts[key]
+    d.pre_build_ghosts[key] = nil
 
-    local ghost
+    local ghost = nil
     local ghost_was_present
-    if pre_ghost_name == nil then
-        -- Robot builds don't fire on_pre_build — use the existing find_ghost search.
+    local pre_direction, pre_orientation
+    if pre == nil then
         ghost = find_ghost(entity, s.radius, player)
         ghost_was_present = ghost ~= nil
-    elseif pre_ghost_name == false then
+        if ghost then
+            pre_direction = ghost.direction
+            pre_orientation = ghost.orientation
+        end
+    elseif pre == false then
         ghost_was_present = false
     else
-        -- Ghost existed; verify the name matches what was actually built.
-        ghost_was_present = (pre_ghost_name == entity.name)
+        ghost_was_present = (pre.ghost_name == entity.name)
+        pre_direction = pre.direction
+        pre_orientation = pre.orientation
     end
 
     if not ghost_was_present then
@@ -320,21 +325,21 @@ local function handle_placement(event)
         return
     end
 
-    if should_align(entity, s) then
-        entity.direction = ghost.direction
-        if ghost.orientation and entity.orientation then
-            entity.orientation = ghost.orientation
+    if should_align(entity, s) and pre_direction then
+        entity.direction = pre_direction
+        if pre_orientation and entity.orientation then
+            entity.orientation = pre_orientation
         end
     end
 
-    if s.show_visual_feedback and ghost.valid then
+    if s.show_visual_feedback then
         pcall(function()
             rendering.draw_sprite{
-                sprite="utility/editor_selection",
-                target=ghost,
-                surface=ghost.surface,
-                time_to_live=30,
-                color={0,1,0,0.5}
+                sprite = "utility/editor_selection",
+                target = entity,
+                surface = entity.surface,
+                time_to_live = 30,
+                color = {0, 1, 0, 0.5}
             }
         end)
     end
@@ -647,7 +652,6 @@ script.on_event(defines.events.on_pre_build, function(e)
     if not player then return end
     local d = data()
     if not d.enabled[player.index] then return end
-    local s = settings(player)
 
     -- surface_index is available via player.surface when on_pre_build fires
     local surface = player.surface
@@ -661,12 +665,17 @@ script.on_event(defines.events.on_pre_build, function(e)
     }
 
     local key = prebuild_key(surface.index, pos)
-    -- Store which ghost_name was found (nil if none), so on_built_entity can cross-check.
+    -- Store ghost metadata before the engine consumes it, for on_built_entity cross-check.
     d.pre_build_ghosts = d.pre_build_ghosts or {}
     if #ghosts > 0 then
-        d.pre_build_ghosts[key] = ghosts[1].ghost_name
+        local g = ghosts[1]
+        d.pre_build_ghosts[key] = {
+            ghost_name = g.ghost_name,
+            direction = g.direction,
+            orientation = g.orientation
+        }
     else
-        d.pre_build_ghosts[key] = false   -- explicit false = "checked, no ghost"
+        d.pre_build_ghosts[key] = false
     end
 end)
 
