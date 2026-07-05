@@ -118,3 +118,34 @@ No other mod dependencies.
 ## Historical note
 
 Prior to cleanup (2026-07-04), the repo contained nine `.txt` draft copies of control logic (`toggles_*.txt`, `control3_DS.txt`, `control4_GPT.txt`) from iterative AI-assisted development. These were removed; content remains in git history. See `AUDIT.md` for the full audit.
+
+## Cursor Cloud specific instructions
+
+This is a pure-Lua Factorio mod: no package manager, build step, or automated test suite. "Dev setup" means lint + loading the mod in the real Factorio engine.
+
+### Lint (the one repeatable check)
+
+- `luacheck control.lua data.lua` — the startup update script installs `luacheck`. Config lives in `.luacheckrc`, which declares Factorio runtime globals (`game`, `script`, `defines`, `storage`, `prototypes`, `rendering`, `table.deepcopy`, …).
+- Expect `0 errors`. Two pre-existing style warnings (`control.lua` unused `s`/`cfg`) are known and harmless — do not "fix" them as drive-by changes.
+- `luacheck` also parses the files, so it doubles as a syntax check. `jq empty info.json` validates the manifest.
+
+### Running the mod (Factorio headless)
+
+The mod can be loaded/run in the real engine, but the graphical client is **not** available here (it is proprietary and needs a licensed login). Use the **headless** server, which is a free public download and runs the data + control stages identically to the client:
+
+```
+curl -sSL -o /tmp/f.tar.xz https://factorio.com/get-download/stable/headless/linux64
+mkdir -p ~/factorio && tar -xf /tmp/f.tar.xz -C ~/factorio --strip-components=1
+ln -sfn /workspace ~/factorio/mods/ghost-only-mode_2.3.3   # folder name MUST match name_version from info.json
+printf '{"mods":[{"name":"base","enabled":true},{"name":"ghost-only-mode","enabled":true}]}' > ~/factorio/mods/mod-list.json
+~/factorio/bin/x64/factorio --mod-directory ~/factorio/mods --create ~/factorio/saves/test.zip   # loads mod, checks for errors
+~/factorio/bin/x64/factorio --mod-directory ~/factorio/mods --start-server ~/factorio/saves/test.zip --rcon-port 27015 --rcon-password devpass
+```
+
+A clean load shows `Loading mod ghost-only-mode 2.3.3 (data.lua)`, a `Checksum for script __ghost-only-mode__/control.lua` line, and no `Error`/`stacktrace` lines. `script.active_mods` (via RCON) confirms it is active.
+
+### Non-obvious testing caveat (important)
+
+- A headless server has **zero players** (`#game.players == 0`) and there is no scripted way to spawn one. The mod's core enforcement (`handle_placement`) returns early without a valid `event.player_index`, so **player-driven placement rejection cannot be triggered headless**. Full interactive testing (Ctrl+G, GUI, off-ghost refund) requires the graphical client + a Factorio account.
+- What *is* verifiable headless: the mod loads without errors, is active at runtime, and the engine ghost-detection primitive it depends on (`surface.find_entities_filtered{type="entity-ghost", ghost_name=..., area=<radius>}`) behaves correctly — matching ghost → keep, no/mismatched ghost → reject.
+- RCON `/c` commands execute in the **scenario (`__level__`) Lua context**, not the mod's, so the mod's private `storage` table and event handlers are not directly inspectable that way; `prototypes`, `game`, and surfaces are shared and are inspectable.
