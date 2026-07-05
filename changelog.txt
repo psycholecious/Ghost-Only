@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.8
+Date: 2026-07-05
+  Bugfixes:
+    - Added/repaired English locale (locale/en/en.cfg) — fixes 'Unknown key' strings throughout the GUI and status bar
+---------------------------------------------------------------------------------------------------
 Version: 2.3.7
 Date: 2026-07-05
   Bugfixes:
