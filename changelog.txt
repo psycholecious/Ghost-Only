@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.12
+Date: 2026-07-05
+  Bugfixes:
+    - Fixed crash in should_align: LuaEntityPrototype.rotatable removed in 2.0, replaced with entity.supports_direction. Fixed nil ghost reference in alignment/feedback blocks: ghost is consumed by engine before on_built_entity fires; direction now stored during on_pre_build and applied to built entity.
+---------------------------------------------------------------------------------------------------
 Version: 2.3.11
 Date: 2026-07-05
   Bugfixes:
