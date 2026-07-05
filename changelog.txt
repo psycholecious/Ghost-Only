@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.14
+Date: 2026-07-05
+  Bugfixes:
+    - Fixed: multi-tile entities (drills, assemblers, etc.) now correctly detect ghosts — on_pre_build now keys by ghost center position and checks cursor is inside the ghost's bounding_box, not a fixed 0.5-tile radius
+    - Fixed: "No matching ghost" flying text is now readable (180 ticks, speed 15)
+  Features:
+    - Allow ghost placement toggle in General settings — lets players place entity ghosts while Ghost-Only mode is active
+---------------------------------------------------------------------------------------------------
 Version: 2.3.13
 Date: 2026-07-05
   Bugfixes:

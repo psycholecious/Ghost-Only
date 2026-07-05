@@ -38,6 +38,7 @@ local DEFAULTS = {
     show_gui = true,
     show_visual_feedback = true,
     auto_match_ghost = true,
+    allow_ghost_placement = true,
     radius = 0.5,
     cache_limit = 10,
     blacklist = {}
@@ -290,6 +291,7 @@ local function handle_placement(event)
     if not player or not d.enabled[player.index] then return end
     local s = settings(player)
     if s.blacklist[entity.name] then return end
+    if entity.type == "entity-ghost" and s.allow_ghost_placement then return end
 
     -- Check the pre-build lookahead: did a ghost exist at this position before the engine consumed it?
     local pos = entity.position
@@ -302,25 +304,12 @@ local function handle_placement(event)
     local pre_direction = nil
     local ghost_was_present = false
 
-    if pre == nil then
-        -- Robot build path: no on_pre_build record, fall back to live search.
-        local ghost = find_ghost(entity, s.radius, player)
-        if ghost then
-            ghost_was_present = true
-            ghost_name_expected = ghost.ghost_name
-            pre_direction = ghost.direction
-        end
-    elseif pre == false then
-        ghost_was_present = false
-    else
-        -- pre is a table: {ghost_name, direction}
+    if pre ~= nil then
         ghost_name_expected = pre.ghost_name
         pre_direction = pre.direction
         if ghost_name_expected == entity.name then
             ghost_was_present = true
         else
-            -- A ghost exists but is a different entity type.
-            -- Auto-match ghost type: try to swap the placed item for the ghost's item.
             ghost_was_present = false
             if s.auto_match_ghost then
                 local ghost_proto = prototypes.entity[ghost_name_expected]
@@ -363,8 +352,8 @@ local function handle_placement(event)
                                 text = {"gom.no-item-for-ghost", ghost_name_expected},
                                 position = pos,
                                 color = {1, 0.5, 0},
-                                time_to_live = 60,
-                                speed = 40
+                                time_to_live = 180,
+                                speed = 15
                             }
                         end
                         if not event.robot then
@@ -372,10 +361,19 @@ local function handle_placement(event)
                         end
                         return
                     end
-                else
-                    ghost_was_present = false
                 end
             end
+        end
+    else
+        if event.robot then
+            local ghost = find_ghost(entity, s.radius, player)
+            if ghost then
+                ghost_was_present = true
+                ghost_name_expected = ghost.ghost_name
+                pre_direction = ghost.direction
+            end
+        else
+            ghost_was_present = false
         end
     end
 
@@ -387,8 +385,8 @@ local function handle_placement(event)
                 text = {"gom.no-matching-ghost"},
                 position = pos,
                 color = {1, 0, 0},
-                time_to_live = 60,
-                speed = 40
+                time_to_live = 180,
+                speed = 15
             }
         end
         if not event.robot then player.print({"gom.build-only-on-ghosts"}) end
@@ -578,6 +576,8 @@ local function create_settings_window_content(frame, player)
         tooltip={"gom.tooltip-show-gui"}}
     gen.add{type="checkbox", name="gom_visual",     caption={"gom.show-visual"},       state=s.show_visual_feedback,
         tooltip={"gom.tooltip-visual"}}
+    gen.add{type="checkbox", name="gom_allow_ghost", caption={"gom.allow-ghost-placement"},
+        state=s.allow_ghost_placement, tooltip={"gom.tooltip-allow-ghost"}}
 
     local adv = frame.add{type="flow", name=GUI.PANEL_ADVANCED, direction="vertical", visible=false}
     adv.add{type="label", caption={"gom.advanced-note"}}
@@ -695,6 +695,8 @@ local function on_gui_checked_state_changed(e)
         end
     elseif el.name == "gom_visual" then
         s.show_visual_feedback = el.state
+    elseif el.name == "gom_allow_ghost" then
+        s.allow_ghost_placement = el.state
     end
 end
 
@@ -742,28 +744,37 @@ script.on_event(defines.events.on_pre_build, function(e)
     local d = data()
     if not d.enabled[player.index] then return end
 
-    -- surface_index is available via player.surface when on_pre_build fires
     local surface = player.surface
-    local pos = e.position
+    local cursor_pos = e.position
 
-    -- Search for any entity-ghost at the cursor position before the engine consumes it.
-    -- Use a small area (0.5 tiles) — the cursor is always tile-centred for entity builds.
     local ghosts = surface.find_entities_filtered{
         type = "entity-ghost",
-        area = {{pos.x - 0.5, pos.y - 0.5}, {pos.x + 0.5, pos.y + 0.5}}
+        area = {
+            {cursor_pos.x - 2.5, cursor_pos.y - 2.5},
+            {cursor_pos.x + 2.5, cursor_pos.y + 2.5}
+        }
     }
 
-    local key = prebuild_key(surface.index, pos)
-    -- Store ghost metadata before the engine consumes it, for on_built_entity cross-check.
     d.pre_build_ghosts = d.pre_build_ghosts or {}
-    if #ghosts > 0 then
-        local g = ghosts[1]
+
+    local found = nil
+    for _, g in ipairs(ghosts) do
+        if g.valid then
+            local bb = g.bounding_box
+            if cursor_pos.x >= bb.left_top.x and cursor_pos.x <= bb.right_bottom.x and
+               cursor_pos.y >= bb.left_top.y and cursor_pos.y <= bb.right_bottom.y then
+                found = g
+                break
+            end
+        end
+    end
+
+    if found then
+        local key = prebuild_key(surface.index, found.position)
         d.pre_build_ghosts[key] = {
-            ghost_name = g.ghost_name,
-            direction = g.direction
+            ghost_name = found.ghost_name,
+            direction  = found.direction
         }
-    else
-        d.pre_build_ghosts[key] = false
     end
 end)
 
