@@ -2,7 +2,7 @@
 
 A [Factorio 2.0](https://factorio.com/) mod that restricts building to positions where a matching **ghost entity** already exists. Useful when laying out blueprints and you want to avoid accidentally placing entities off-ghost.
 
-**Current version:** 2.3.11 · **Factorio:** 2.0+ · **Dependency:** `base >= 2.0.0`
+**Current version:** 2.3.13 · **Factorio:** 2.0+ · **Dependency:** `base >= 2.0.0`
 
 ## Features
 
@@ -19,8 +19,8 @@ A [Factorio 2.0](https://factorio.com/) mod that restricts building to positions
    - **Windows:** `%APPDATA%\Factorio\mods\`
    - **Linux:** `~/.factorio/mods/`
    - **macOS:** `~/Library/Application Support/factorio/mods/`
-3. Name the folder to match the version in `info.json`, e.g. `ghost-only-mode_2.3.11`,  
-   or zip it as `ghost-only-mode_2.3.11.zip`.
+3. Name the folder to match the version in `info.json`, e.g. `ghost-only-mode_2.3.13`,  
+   or zip it as `ghost-only-mode_2.3.13.zip`.
 4. Launch Factorio 2.0+, enable **Ghost-Only Mode** in the mod list, and start or load a save.
 
 ## Usage
