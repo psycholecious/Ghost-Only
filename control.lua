@@ -282,13 +282,15 @@ local function handle_placement(event)
     if not ghost then
         if event.tags then return end
         local pos = entity.position
-        local surface = entity.surface
         refund_build_items(event, player, entity, event.robot)
         entity.destroy{raise_destroy = true}
-        if s.show_visual_feedback then
-            surface.create_entity{
-                name="flying-text", position=pos,
-                text={"gom.no-matching-ghost"}, color={1,0,0}
+        if s.show_visual_feedback and player and player.valid then
+            player.create_local_flying_text{
+                text = {"gom.no-matching-ghost"},
+                position = pos,
+                color = {1, 0, 0},
+                time_to_live = 60,
+                speed = 40
             }
         end
         if not event.robot then player.print({"gom.build-only-on-ghosts"}) end
