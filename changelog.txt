@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.15
+Date: 2026-07-05
+  Features:
+    - Allow cross-type swap toggle (off by default) — controls whether auto-match applies across entity families (e.g. inserter types) or only within upgrade tiers
+  Bugfixes:
+    - Fixed: settings window now opens centered on screen
+    - Fixed: Ctrl+Shift+G hotkey opens settings directly (works when status bar is hidden)
+    - Fixed: active tab now highlighted in gold; tab buttons sized consistently
+    - Fixed: missing locale keys (wrong-ghost-type, type-swap tooltip, settings tooltip)
+---------------------------------------------------------------------------------------------------
 Version: 2.3.14
 Date: 2026-07-05
   Bugfixes:

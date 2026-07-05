@@ -39,6 +39,7 @@ local DEFAULTS = {
     show_visual_feedback = true,
     auto_match_ghost = true,
     allow_ghost_placement = true,
+    allow_type_swap = false,
     radius = 0.5,
     cache_limit = 10,
     blacklist = {}
@@ -568,6 +569,7 @@ local function create_settings_window_content(frame, player)
     local gen = frame.add{type="flow", name=GUI.PANEL_GENERAL, direction="vertical", visible=false}
     gen.add{type="checkbox", name="gom_auto_match", caption={"gom.auto-match-ghost"}, state=s.auto_match_ghost,
         tooltip={"gom.tooltip-auto-match"}}
+    gen.add{type="checkbox", name="gom_type_swap", caption={"gom.allow-type-swap"}, state=s.allow_type_swap, tooltip={"gom.tooltip-type-swap"}}
     gen.add{type="checkbox", name="gom_align",      caption={"gom.auto-align"},       state=s.align,
         tooltip={"gom.tooltip-align"}}
     gen.add{type="checkbox", name="gom_robots",     caption={"gom.enforce-robots"},    state=s.enforce_robots,
@@ -614,7 +616,16 @@ local function open_settings(player)
     end
 
     local frame = root.add{type="frame", name=GUI.FRAME, caption={"gom.settings-title"}, direction="vertical"}
-    frame.location = d.gui_positions[player.index] or {x=300, y=200}
+    if d.gui_positions[player.index] then
+        frame.location = d.gui_positions[player.index]
+    else
+        local res = player.display_resolution
+        local scale = player.display_scale
+        frame.location = {
+            x = math.floor((res.width  / scale - 420) / 2),
+            y = math.floor((res.height / scale - 340) / 2),
+        }
+    end
 
     -- Title bar
     local titlebar = frame.add{type="flow", direction="horizontal", name="gom_titlebar"}
@@ -683,6 +694,8 @@ local function on_gui_checked_state_changed(e)
 
     if el.name == "gom_auto_match" then
         s.auto_match_ghost = el.state
+    elseif el.name == "gom_type_swap" then
+        s.allow_type_swap = el.state
     elseif el.name == "gom_align" then
         s.align = el.state
     elseif el.name == "gom_robots" then
@@ -845,6 +858,11 @@ script.on_event(TOGGLE_KEY, function(e)
     d.enabled[player.index] = not d.enabled[player.index]
     update_enabled_cache_smart(player.index, d.enabled[player.index])
     update_gui(player)
+end)
+
+script.on_event("ghost-only-settings", function(e)
+    local player = game.get_player(e.player_index)
+    if player then open_settings(player) end
 end)
 
 -------------------
