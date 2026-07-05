@@ -305,7 +305,7 @@ local function handle_placement(event)
     if s.show_visual_feedback and ghost.valid then
         pcall(function()
             rendering.draw_sprite{
-                sprite="utility/editor_selection",
+                sprite=safe_sprite("utility/editor_selection", "utility/go_to_arrow"),
                 target=ghost,
                 surface=ghost.surface,
                 time_to_live=30,

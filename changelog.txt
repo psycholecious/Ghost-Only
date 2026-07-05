@@ -3,6 +3,8 @@ Version: 2.3.8
 Date: 2026-07-05
   Bugfixes:
     - Added/repaired English locale (locale/en/en.cfg) — fixes 'Unknown key' strings throughout the GUI and status bar
+    - Restored [custom-input-name] locale for Ctrl+G hotkey label (lost when stale locale.cfg was removed)
+    - Placement feedback sprite now validated via safe_sprite (FACTORIO_2.0_API_REFERENCE.md checklist)
 ---------------------------------------------------------------------------------------------------
 Version: 2.3.7
 Date: 2026-07-05
