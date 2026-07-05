@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.7
+Date: 2026-07-05
+  Bugfixes:
+    - spill_item_stack converted to 2.0 table API (fixes crash on off-ghost refund)
+    - Removed illegal string.format on localised strings (fixes crash on opening settings window)
+    - Sprite paths now validated at runtime with fallback
+---------------------------------------------------------------------------------------------------
 Version: 2.3.6
 Date: 2026-07-04
   Bugfixes:
