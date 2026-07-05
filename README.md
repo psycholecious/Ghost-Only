@@ -66,4 +66,4 @@ No license file is included in this repository. Contact the author if you need c
 
 ## Author
 
-Danick B. — coded and optimized with assistance from ChatGPT and Deepseek (per `info.json`).
+Danick B. — coded and optimized with assistance from ChatGPT, Deepseek, Fable, Opus, Sonnet and Composer 2.5. 
