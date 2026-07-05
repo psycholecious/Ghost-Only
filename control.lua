@@ -295,7 +295,7 @@ local function handle_placement(event)
     if s.show_visual_feedback and ghost.valid then
         pcall(function()
             rendering.draw_sprite{
-                sprite="utility/indicator_bracket",
+                sprite="utility/editor_selection",
                 target=ghost,
                 surface=ghost.surface,
                 time_to_live=30,
@@ -324,7 +324,7 @@ local function create_gui_elements(flow)
         flow.add{
             type = "sprite-button",
             name = GUI.SETTINGS,
-            sprite = "utility/settings",
+            sprite = "utility/expand_dots",
             tooltip = {"gom.tooltip-settings"}
         }
     end
@@ -501,7 +501,7 @@ local function open_settings(player)
     titlebar.add{type="label", caption={"gom.settings-title"}, style="frame_title"}
     local drag_space = titlebar.add{type="empty-widget", style="draggable_space_header"}
     drag_space.style.horizontally_stretchable = true
-    titlebar.add{type="sprite-button", name=GUI.CLOSE, sprite="utility/close_white", style="frame_action_button"}
+    titlebar.add{type="sprite-button", name=GUI.CLOSE, sprite="utility/close", style="frame_action_button"}
 
     create_settings_window_content(frame, player)
 end

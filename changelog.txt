@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.6
+Date: 2026-07-04
+  Bugfixes:
+    - Settings button uses utility/expand_dots (utility/settings does not exist)
+    - Settings close button uses utility/close (utility/close_white does not exist)
+    - Placement feedback sprite uses utility/editor_selection (utility/indicator_bracket does not exist)
+---------------------------------------------------------------------------------------------------
 Version: 2.3.5
 Date: 2026-07-04
   Bugfixes:
