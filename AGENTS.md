@@ -82,7 +82,7 @@ No other mod dependencies.
 3. Start or load a save. Verify:
    - No errors in Factorio log (`factorio-current.log`)
    - Ctrl+G toggles the top-right status GUI
-   - Settings button opens the settings window (blacklist textfield renders correctly)
+   - **Ctrl+Shift+G** or the settings button opens the settings window (centered via `display_resolution` / `display_scale`; blacklist textfield renders correctly)
    - Placing off-ghost with mode ON refunds the item(s) and shows feedback
    - Placing on a ghost succeeds; rotation aligns when enabled
 
@@ -99,7 +99,7 @@ No other mod dependencies.
 - **`rendering.draw_sprite` feedback** — wrapped in `pcall`; failure is silent.
 - **Tile-ghost enforcement** — deliberately deferred. Common floor tiles are blacklisted by default; full support would need `on_player_built_tile` / `on_robot_built_tile` handlers.
 - **Status GUI after save/load** — `player.gui.top` elements persist in saves; `ensure_all_player_guis()` runs on tick 1 after load as a safety net (see Conventions). `on_singleplayer_init` / `on_multiplayer_init` only fire when `is_multiplayer` changes, not on every SP reload.
-- **No README** — `info.json` description and this file serve as documentation.
+- **Settings window** — opens centered on screen using `display_resolution` and `display_scale`; **Ctrl+Shift+G** opens settings directly (works when the status bar is hidden).
 
 ## Conventions for future edits
 
