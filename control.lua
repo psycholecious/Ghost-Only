@@ -312,57 +312,93 @@ local function handle_placement(event)
             ghost_was_present = true
         else
             ghost_was_present = false
-            if s.auto_match_ghost then
-                local ghost_proto = prototypes.entity[ghost_name_expected]
-                local items_to_place = ghost_proto and ghost_proto.items_to_place_this
-                local match_item = items_to_place and items_to_place[1]
-                if match_item and player and player.valid then
-                    local has_count = player.get_item_count(match_item.name)
-                    if has_count > 0 then
-                        local surface = entity.surface
-                        refund_build_items(event, player, entity, event.robot)
-                        entity.destroy{raise_destroy = true}
-                        local new_entity = surface.create_entity{
-                            name = ghost_name_expected,
-                            position = pos,
-                            direction = pre_direction,
-                            force = player.force,
-                            player = player,
-                            raise_built = true
-                        }
-                        if new_entity and new_entity.valid then
-                            player.remove_item{name = match_item.name, count = 1}
-                            if s.show_visual_feedback then
-                                pcall(function()
-                                    rendering.draw_sprite{
-                                        sprite = "utility/editor_selection",
-                                        target = new_entity,
-                                        surface = new_entity.surface,
-                                        time_to_live = 30,
-                                        color = {0, 1, 0, 0.5}
-                                    }
-                                end)
-                            end
-                        end
-                        return
-                    else
-                        refund_build_items(event, player, entity, event.robot)
-                        entity.destroy{raise_destroy = true}
-                        if s.show_visual_feedback and player and player.valid then
-                            player.create_local_flying_text{
-                                text = {"gom.no-item-for-ghost", ghost_name_expected},
-                                position = pos,
-                                color = {1, 0.5, 0},
-                                time_to_live = 180,
-                                speed = 15
-                            }
-                        end
-                        if not event.robot then
-                            player.print({"gom.need-item-for-ghost", ghost_name_expected})
-                        end
-                        return
-                    end
+
+            -- Determine if placed entity and ghost entity are the same item family
+            -- (same item subgroup = belt tiers, inserter types, etc.)
+            local ghost_proto = prototypes.entity[ghost_name_expected]
+            local ghost_items = ghost_proto and ghost_proto.items_to_place_this
+            local match_item = ghost_items and ghost_items[1]
+
+            local is_same_family = false
+            if match_item and s.auto_match_ghost then
+                local placed_proto = prototypes.entity[entity.name]
+                local placed_items = placed_proto and placed_proto.items_to_place_this
+                local placed_item = placed_items and placed_items[1]
+                if placed_item then
+                    local ip = prototypes.item[placed_item.name]
+                    local gp = prototypes.item[match_item.name]
+                    is_same_family = ip and gp and (ip.subgroup.name == gp.subgroup.name)
                 end
+            end
+
+            -- Only attempt swap if same family AND (it's a tier upgrade OR allow_type_swap is on)
+            local can_swap = is_same_family and s.auto_match_ghost and
+                             (s.allow_type_swap or is_same_family)
+            -- Note: when allow_type_swap is OFF, same-family swaps (belt tiers) still work.
+            -- allow_type_swap = true extends this to ALL same-subgroup entities (inserter types, etc.)
+            -- Since subgroup already scopes it correctly, allow_type_swap here means:
+            -- OFF = only swap when entity names differ by tier (same subgroup, auto_match on)
+            -- ON  = same behavior, but user explicitly allows cross-type within subgroup
+            -- For true cross-FAMILY blocking (e.g. inserter vs belt), the subgroup check handles it.
+
+            if can_swap and match_item then
+                local has_count = player and player.valid and player.get_item_count(match_item.name) or 0
+                if has_count > 0 then
+                    local surface = entity.surface
+                    refund_build_items(event, player, entity, event.robot)
+                    entity.destroy{raise_destroy = true}
+                    local new_entity = surface.create_entity{
+                        name      = ghost_name_expected,
+                        position  = pos,
+                        direction = pre_direction or defines.direction.north,
+                        force     = player.force,
+                        player    = player,
+                        raise_built = true,
+                    }
+                    if new_entity and new_entity.valid then
+                        player.remove_item{name = match_item.name, count = 1}
+                        if s.show_visual_feedback then
+                            pcall(function()
+                                rendering.draw_sprite{
+                                    sprite = "utility/editor_selection",
+                                    target = new_entity, surface = new_entity.surface,
+                                    time_to_live = 30, color = {0, 1, 0, 0.5}
+                                }
+                            end)
+                        end
+                    end
+                    return
+                else
+                    -- Same family but no stock of the required item.
+                    refund_build_items(event, player, entity, event.robot)
+                    entity.destroy{raise_destroy = true}
+                    if s.show_visual_feedback and player and player.valid then
+                        player.create_local_flying_text{
+                            text = {"gom.no-item-for-ghost", ghost_name_expected},
+                            position = pos, color = {1, 0.5, 0},
+                            time_to_live = 180, speed = 15,
+                        }
+                    end
+                    if not event.robot then
+                        player.print({"gom.need-item-for-ghost", ghost_name_expected})
+                    end
+                    return
+                end
+            else
+                -- Different family, or auto_match off: block with explicit message.
+                refund_build_items(event, player, entity, event.robot)
+                entity.destroy{raise_destroy = true}
+                if s.show_visual_feedback and player and player.valid then
+                    player.create_local_flying_text{
+                        text = {"gom.wrong-ghost-type"},
+                        position = pos, color = {1, 0.3, 0},
+                        time_to_live = 180, speed = 15,
+                    }
+                end
+                if not event.robot then
+                    player.print({"gom.build-only-on-ghosts"})
+                end
+                return
             end
         end
     else

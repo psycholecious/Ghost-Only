@@ -2,7 +2,7 @@
 
 A [Factorio 2.0](https://factorio.com/) mod that restricts building to positions where a matching **ghost entity** already exists. Useful when laying out blueprints and you want to avoid accidentally placing entities off-ghost.
 
-**Current version:** 2.3.13 · **Factorio:** 2.0+ · **Dependency:** `base >= 2.0.0`
+**Current version:** 2.3.16 · **Factorio:** 2.0+ · **Dependency:** `base >= 2.0.0`
 
 ## Features
 
@@ -19,8 +19,8 @@ A [Factorio 2.0](https://factorio.com/) mod that restricts building to positions
    - **Windows:** `%APPDATA%\Factorio\mods\`
    - **Linux:** `~/.factorio/mods/`
    - **macOS:** `~/Library/Application Support/factorio/mods/`
-3. Name the folder to match the version in `info.json`, e.g. `ghost-only-mode_2.3.13`,  
-   or zip it as `ghost-only-mode_2.3.13.zip`.
+3. Name the folder to match the version in `info.json`, e.g. `ghost-only-mode_2.3.16`,  
+   or zip it as `ghost-only-mode_2.3.16.zip`.
 4. Launch Factorio 2.0+, enable **Ghost-Only Mode** in the mod list, and start or load a save.
 
 ## Usage
@@ -28,7 +28,7 @@ A [Factorio 2.0](https://factorio.com/) mod that restricts building to positions
 | Action | How |
 |--------|-----|
 | Toggle mode | **Ctrl+G** or click the construction-robot icon in the top bar |
-| Open settings | Click the **⋯** (options) button next to the status label |
+| Open settings | **Ctrl+Shift+G** or click the **⋯** (options) button next to the status label |
 | When mode is **ON** | You can only build entities on top of an existing ghost of the same type |
 | Blacklist | Entities on the blacklist can always be placed normally (e.g. tiles, landfill) |
 

@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.3.16
+Date: 2026-07-06
+  Bugfixes:
+    - Fixed: auto-match now correctly checks item subgroup before swapping (prevents cross-family swaps e.g. inserter over furnace ghost)
+    - Fixed: allow_type_swap setting now actually gates the swap logic
+    - Fixed: wrong entity family over a ghost now shows "Wrong item for this ghost" message and blocks cleanly
+---------------------------------------------------------------------------------------------------
 Version: 2.3.15
 Date: 2026-07-05
   Features:
